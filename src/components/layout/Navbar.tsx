@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
+import { useCartStore } from "@/stores/cart";
 
 const navLinks = [
   { href: "/", label: "Inicio" },
@@ -18,6 +19,13 @@ export default function Navbar() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const toggleCart = useCartStore((s) => s.toggleCart);
+  const itemCount = useCartStore((s) => s.itemCount);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
@@ -88,8 +96,33 @@ export default function Navbar() {
               ))}
             </div>
 
-            {/* Right: login link — desktop */}
-            <div className="hidden lg:flex items-center">
+            {/* Right: cart + login — desktop */}
+            <div className="hidden lg:flex items-center gap-2">
+              <button
+                onClick={toggleCart}
+                className="relative p-2 rounded-lg text-text-secondary hover:text-text-primary transition-colors duration-300"
+                aria-label="Abrir carrito"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                {mounted && itemCount() > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {itemCount()}
+                  </span>
+                )}
+              </button>
               <Link
                 href="/login"
                 className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-300 ${
@@ -102,36 +135,63 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* Hamburger — mobile */}
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="lg:hidden p-2 rounded-lg text-text-primary transition-colors duration-300 hover:bg-surface"
-              aria-label={mobileOpen ? "Cerrar menu" : "Abrir menu"}
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {/* Cart + Hamburger — mobile */}
+            <div className="flex items-center gap-2 lg:hidden">
+              <button
+                onClick={toggleCart}
+                className="relative p-2 rounded-lg text-text-secondary hover:text-text-primary transition-colors duration-300"
+                aria-label="Abrir carrito"
               >
-                {mobileOpen ? (
-                  <>
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </>
-                ) : (
-                  <>
-                    <line x1="3" y1="6" x2="21" y2="6" />
-                    <line x1="3" y1="12" x2="21" y2="12" />
-                    <line x1="3" y1="18" x2="21" y2="18" />
-                  </>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="9" cy="21" r="1" />
+                  <circle cx="20" cy="21" r="1" />
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                </svg>
+                {mounted && itemCount() > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {itemCount()}
+                  </span>
                 )}
-              </svg>
-            </button>
+              </button>
+              <button
+                onClick={() => setMobileOpen(!mobileOpen)}
+                className="p-2 rounded-lg text-text-primary transition-colors duration-300 hover:bg-surface"
+                aria-label={mobileOpen ? "Cerrar menu" : "Abrir menu"}
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {mobileOpen ? (
+                    <>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </>
+                  ) : (
+                    <>
+                      <line x1="3" y1="6" x2="21" y2="6" />
+                      <line x1="3" y1="12" x2="21" y2="12" />
+                      <line x1="3" y1="18" x2="21" y2="18" />
+                    </>
+                  )}
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </nav>
