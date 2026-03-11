@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import BlogCard from "@/components/blog/BlogCard";
@@ -185,6 +186,29 @@ async function getAllSlugs(): Promise<string[]> {
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const article = await getArticle(slug);
+
+  if (!article) {
+    return {
+      title: "Articulo no encontrado | Vital Emocion",
+    };
+  }
+
+  return {
+    title: `${article.title} | Vital Emocion`,
+    description: article.excerpt,
+    openGraph: {
+      title: `${article.title} | Vital Emocion`,
+      description: article.excerpt,
+      type: "article",
+    },
+  };
 }
 
 export async function generateStaticParams() {

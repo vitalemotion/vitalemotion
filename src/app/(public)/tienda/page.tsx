@@ -1,6 +1,18 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import TiendaClient from "@/components/store/TiendaClient";
 import type { Product } from "@/components/store/TiendaClient";
+
+export const metadata: Metadata = {
+  title: "Tienda | Vital Emocion",
+  description:
+    "Libros, guias digitales y materiales para tu crecimiento personal.",
+  openGraph: {
+    title: "Tienda | Vital Emocion",
+    description:
+      "Libros, guias digitales y materiales para tu crecimiento personal.",
+  },
+};
 
 export const placeholderProducts: Product[] = [
   {

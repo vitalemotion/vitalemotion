@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import HeroScroll from "@/components/animations/HeroScroll";
 import ValueProposition from "@/components/home/ValueProposition";
 import TestimonialsCarousel from "@/components/home/TestimonialsCarousel";
@@ -18,6 +19,17 @@ const PLACEHOLDER_FEATURED: FeaturedProduct[] = [
   { title: "Diario de Emociones", price: "$35.000", tag: "Libro", slug: "diario-de-emociones" },
   { title: "Taller de Autoestima (Video)", price: "$60.000", tag: "Digital", slug: "taller-de-autoestima-video" },
 ];
+
+export const metadata: Metadata = {
+  title: "Vital Emocion | Bienestar Psicologico",
+  description:
+    "Centro de bienestar psicologico. Terapia individual, terapia de pareja, talleres y recursos para tu salud mental.",
+  openGraph: {
+    title: "Vital Emocion | Bienestar Psicologico",
+    description: "Tu bienestar emocional comienza aqui",
+    type: "website",
+  },
+};
 
 function formatCOP(value: number): string {
   return `$${value.toLocaleString("es-CO")}`;

@@ -66,6 +66,7 @@ export default function ContactForm() {
             stroke="currentColor"
             strokeWidth="2"
             className="text-success"
+            aria-hidden="true"
           >
             <path d="M20 6L9 17l-5-5" />
           </svg>
@@ -103,9 +104,11 @@ export default function ContactForm() {
               : "border-transparent focus:border-primary"
           }`}
           placeholder="Tu nombre completo"
+          aria-describedby={errors.nombre ? "nombre-error" : undefined}
+          aria-invalid={!!errors.nombre}
         />
         {errors.nombre && (
-          <p className="text-error text-sm mt-1">{errors.nombre}</p>
+          <p id="nombre-error" role="alert" className="text-error text-sm mt-1">{errors.nombre}</p>
         )}
       </div>
 
@@ -130,9 +133,11 @@ export default function ContactForm() {
               : "border-transparent focus:border-primary"
           }`}
           placeholder="tu@email.com"
+          aria-describedby={errors.email ? "email-error" : undefined}
+          aria-invalid={!!errors.email}
         />
         {errors.email && (
-          <p className="text-error text-sm mt-1">{errors.email}</p>
+          <p id="email-error" role="alert" className="text-error text-sm mt-1">{errors.email}</p>
         )}
       </div>
 
@@ -178,9 +183,11 @@ export default function ContactForm() {
               : "border-transparent focus:border-primary"
           }`}
           placeholder="Cuentanos en que podemos ayudarte..."
+          aria-describedby={errors.mensaje ? "mensaje-error" : undefined}
+          aria-invalid={!!errors.mensaje}
         />
         {errors.mensaje && (
-          <p className="text-error text-sm mt-1">{errors.mensaje}</p>
+          <p id="mensaje-error" role="alert" className="text-error text-sm mt-1">{errors.mensaje}</p>
         )}
       </div>
 

@@ -1,6 +1,18 @@
+import type { Metadata } from "next";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import BlogCard from "@/components/blog/BlogCard";
 import { prisma } from "@/lib/db";
+
+export const metadata: Metadata = {
+  title: "Blog | Vital Emocion",
+  description:
+    "Articulos y recursos sobre bienestar emocional, mindfulness y salud mental.",
+  openGraph: {
+    title: "Blog | Vital Emocion",
+    description:
+      "Articulos y recursos sobre bienestar emocional, mindfulness y salud mental.",
+  },
+};
 
 const PLACEHOLDER_ARTICLES = [
   {

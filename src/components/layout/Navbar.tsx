@@ -112,6 +112,7 @@ export default function Navbar() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  aria-hidden="true"
                 >
                   <circle cx="9" cy="21" r="1" />
                   <circle cx="20" cy="21" r="1" />
@@ -151,6 +152,7 @@ export default function Navbar() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  aria-hidden="true"
                 >
                   <circle cx="9" cy="21" r="1" />
                   <circle cx="20" cy="21" r="1" />
@@ -176,6 +178,7 @@ export default function Navbar() {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  aria-hidden="true"
                 >
                   {mobileOpen ? (
                     <>
@@ -228,6 +231,7 @@ export default function Navbar() {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              aria-hidden="true"
             >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -235,7 +239,7 @@ export default function Navbar() {
           </button>
         </div>
 
-        <nav className="flex flex-col px-4 py-6 gap-1">
+        <nav aria-label="Menu de navegacion movil" className="flex flex-col px-4 py-6 gap-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}

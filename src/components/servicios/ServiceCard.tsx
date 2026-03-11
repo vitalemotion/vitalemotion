@@ -23,8 +23,12 @@ export default function ServiceCard({
   return (
     <AnimatedSection animation="fade-up" delay={index * 0.1}>
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
         className="bg-surface rounded-2xl p-8 shadow-lg shadow-black/5 cursor-pointer transition-all duration-300"
         onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(!expanded); } }}
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -43,6 +47,7 @@ export default function ServiceCard({
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
+            aria-hidden="true"
             className={`text-text-muted transition-transform duration-300 mt-1 flex-shrink-0 ${
               expanded ? "rotate-180" : ""
             }`}

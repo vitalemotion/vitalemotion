@@ -1,6 +1,18 @@
+import type { Metadata } from "next";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import PsychologistCard from "@/components/nosotros/PsychologistCard";
 import { prisma } from "@/lib/db";
+
+export const metadata: Metadata = {
+  title: "Nuestro Equipo | Vital Emocion",
+  description:
+    "Conoce a nuestros psicologos profesionales dedicados a tu bienestar emocional.",
+  openGraph: {
+    title: "Nuestro Equipo | Vital Emocion",
+    description:
+      "Conoce a nuestros psicologos profesionales dedicados a tu bienestar emocional.",
+  },
+};
 
 const IMAGE_COLORS = ["bg-primary", "bg-accent", "bg-primary-dark"];
 

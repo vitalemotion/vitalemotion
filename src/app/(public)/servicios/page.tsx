@@ -1,7 +1,19 @@
+import type { Metadata } from "next";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import ServiceCard from "@/components/servicios/ServiceCard";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+
+export const metadata: Metadata = {
+  title: "Servicios | Vital Emocion",
+  description:
+    "Terapia individual, terapia de pareja, evaluacion psicologica, talleres y mas.",
+  openGraph: {
+    title: "Servicios | Vital Emocion",
+    description:
+      "Terapia individual, terapia de pareja, evaluacion psicologica, talleres y mas.",
+  },
+};
 
 const PLACEHOLDER_SERVICES = [
   {
