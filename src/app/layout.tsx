@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { playfair, dmSans } from "./fonts";
+import AuthProvider from "@/components/providers/SessionProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${playfair.variable} ${dmSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
