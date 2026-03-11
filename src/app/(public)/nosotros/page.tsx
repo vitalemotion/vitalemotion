@@ -1,7 +1,10 @@
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import PsychologistCard from "@/components/nosotros/PsychologistCard";
+import { prisma } from "@/lib/db";
 
-const team = [
+const IMAGE_COLORS = ["bg-primary", "bg-accent", "bg-primary-dark"];
+
+const PLACEHOLDER_TEAM = [
   {
     name: "Dra. Maria Rodriguez",
     title: "Psicologa Clinica",
@@ -25,7 +28,39 @@ const team = [
   },
 ];
 
-export default function NosotrosPage() {
+function deriveTitle(specialties: string[]): string {
+  if (specialties.some((s) => s.includes("Pareja") || s.includes("Comunicacion")))
+    return "Psicologo de Pareja";
+  if (specialties.some((s) => s.includes("Ninos") || s.includes("Adolescentes") || s.includes("Infantil")))
+    return "Psicologa Infantil";
+  return "Psicologa Clinica";
+}
+
+async function getTeam() {
+  try {
+    const psychologists = await prisma.psychologist.findMany({
+      where: { isActive: true },
+      include: { user: { select: { name: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    if (psychologists.length > 0) {
+      return psychologists.map((psy, i) => ({
+        name: psy.user.name || "Psicologo",
+        title: deriveTitle(psy.specialties),
+        specialty: psy.specialties,
+        bio: psy.bio || "",
+        imageColor: IMAGE_COLORS[i % IMAGE_COLORS.length],
+      }));
+    }
+    return PLACEHOLDER_TEAM;
+  } catch {
+    return PLACEHOLDER_TEAM;
+  }
+}
+
+export default async function NosotrosPage() {
+  const team = await getTeam();
+
   return (
     <>
       {/* Hero */}

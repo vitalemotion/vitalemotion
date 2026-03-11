@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import BlogCard from "@/components/blog/BlogCard";
+import { prisma } from "@/lib/db";
 
 interface Article {
   slug: string;
@@ -12,7 +13,7 @@ interface Article {
   content: string[];
 }
 
-const articles: Article[] = [
+const PLACEHOLDER_ARTICLES: Article[] = [
   {
     slug: "como-manejar-la-ansiedad",
     title: "Como manejar la ansiedad en el dia a dia",
@@ -111,17 +112,89 @@ const articles: Article[] = [
   },
 ];
 
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function getArticle(slug: string): Promise<Article | null> {
+  try {
+    const post = await prisma.blogPost.findUnique({
+      where: { slug },
+      include: { author: { select: { name: true } } },
+    });
+    if (post) {
+      return {
+        slug: post.slug,
+        title: post.title,
+        excerpt: post.excerpt || "",
+        date: formatDate(post.createdAt),
+        author: post.author.name || "Equipo Vital Emocion",
+        coverColor: post.coverImage || "bg-primary",
+        content: post.content.split("\n\n"),
+      };
+    }
+  } catch {
+    // Fall through to placeholder
+  }
+  return PLACEHOLDER_ARTICLES.find((a) => a.slug === slug) || null;
+}
+
+async function getRelatedArticles(currentSlug: string): Promise<Article[]> {
+  try {
+    const posts = await prisma.blogPost.findMany({
+      where: { status: "PUBLISHED", slug: { not: currentSlug } },
+      orderBy: { createdAt: "desc" },
+      take: 2,
+      include: { author: { select: { name: true } } },
+    });
+    if (posts.length > 0) {
+      return posts.map((post) => ({
+        slug: post.slug,
+        title: post.title,
+        excerpt: post.excerpt || "",
+        date: formatDate(post.createdAt),
+        author: post.author.name || "Equipo Vital Emocion",
+        coverColor: post.coverImage || "bg-primary",
+        content: post.content.split("\n\n"),
+      }));
+    }
+  } catch {
+    // Fall through to placeholder
+  }
+  return PLACEHOLDER_ARTICLES.filter((a) => a.slug !== currentSlug).slice(0, 2);
+}
+
+async function getAllSlugs(): Promise<string[]> {
+  try {
+    const posts = await prisma.blogPost.findMany({
+      where: { status: "PUBLISHED" },
+      select: { slug: true },
+    });
+    if (posts.length > 0) {
+      return posts.map((p) => p.slug);
+    }
+  } catch {
+    // Fall through to placeholder
+  }
+  return PLACEHOLDER_ARTICLES.map((a) => a.slug);
+}
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export function generateStaticParams() {
-  return articles.map((article) => ({ slug: article.slug }));
+export async function generateStaticParams() {
+  const slugs = await getAllSlugs();
+  return slugs.map((slug) => ({ slug }));
 }
 
 export default async function BlogArticlePage({ params }: PageProps) {
   const { slug } = await params;
-  const article = articles.find((a) => a.slug === slug);
+  const article = await getArticle(slug);
 
   if (!article) {
     return (
@@ -136,9 +209,7 @@ export default async function BlogArticlePage({ params }: PageProps) {
     );
   }
 
-  const related = articles
-    .filter((a) => a.slug !== slug)
-    .slice(0, 2);
+  const related = await getRelatedArticles(slug);
 
   return (
     <>
@@ -155,6 +226,7 @@ export default async function BlogArticlePage({ params }: PageProps) {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
+              aria-hidden="true"
             >
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>

@@ -1,27 +1,22 @@
 import Link from "next/link";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 
-const products = [
-  {
-    title: "El Arte de la Calma",
-    price: "$45.000",
-    tag: "Libro",
-  },
-  {
-    title: "Guia de Mindfulness",
-    price: "$25.000",
-    tag: "Digital",
-  },
-  {
-    title: "Diario de Emociones",
-    price: "$35.000",
-    tag: "Libro",
-  },
-  {
-    title: "Taller de Autoestima (Video)",
-    price: "$60.000",
-    tag: "Digital",
-  },
+interface FeaturedProduct {
+  title: string;
+  price: string;
+  tag: string;
+  slug: string;
+}
+
+interface FeaturedProductsProps {
+  products?: FeaturedProduct[];
+}
+
+const DEFAULT_PRODUCTS: FeaturedProduct[] = [
+  { title: "El Arte de la Calma", price: "$45.000", tag: "Libro", slug: "el-arte-de-la-calma" },
+  { title: "Guia de Mindfulness", price: "$25.000", tag: "Digital", slug: "guia-de-mindfulness" },
+  { title: "Diario de Emociones", price: "$35.000", tag: "Libro", slug: "diario-de-emociones" },
+  { title: "Taller de Autoestima (Video)", price: "$60.000", tag: "Digital", slug: "taller-de-autoestima-video" },
 ];
 
 function BookIcon() {
@@ -36,6 +31,7 @@ function BookIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       className="text-text-muted"
+      aria-hidden="true"
     >
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
       <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15z" />
@@ -45,7 +41,9 @@ function BookIcon() {
   );
 }
 
-export default function FeaturedProducts() {
+export default function FeaturedProducts({ products }: FeaturedProductsProps) {
+  const items = products && products.length > 0 ? products : DEFAULT_PRODUCTS;
+
   return (
     <section className="py-20 px-6">
       <div className="max-w-6xl mx-auto">
@@ -61,7 +59,7 @@ export default function FeaturedProducts() {
 
         {/* Products grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {products.map((product, index) => (
+          {items.map((product, index) => (
             <AnimatedSection
               key={product.title}
               animation="fade-up"
@@ -85,7 +83,7 @@ export default function FeaturedProducts() {
                     {product.price}
                   </p>
                   <Link
-                    href="/tienda"
+                    href={`/tienda/${product.slug}`}
                     className="text-primary hover:text-primary-dark transition-colors duration-200 text-sm font-medium"
                   >
                     Ver detalle &rarr;

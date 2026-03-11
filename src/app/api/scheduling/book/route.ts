@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBooking } from "@/lib/calcom";
-import { getIntelligentAssignment } from "@/lib/scheduling";
+import { getIntelligentAssignment, getServices } from "@/lib/scheduling";
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,7 +97,14 @@ export async function POST(request: NextRequest) {
       }
 
       const startTime = new Date(slotTime);
-      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour default
+      // Get actual service duration from DB/mock
+      let durationMinutes = 60;
+      try {
+        const allServices = await getServices();
+        const svc = allServices.find((s) => s.id === serviceId);
+        if (svc) durationMinutes = svc.duration;
+      } catch { /* use default */ }
+      const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
 
       const appointment = await prisma.appointment.create({
         data: {

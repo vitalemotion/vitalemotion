@@ -1,7 +1,8 @@
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import BlogCard from "@/components/blog/BlogCard";
+import { prisma } from "@/lib/db";
 
-const articles = [
+const PLACEHOLDER_ARTICLES = [
   {
     slug: "como-manejar-la-ansiedad",
     title: "Como manejar la ansiedad en el dia a dia",
@@ -58,7 +59,49 @@ const articles = [
   },
 ];
 
-export default function BlogPage() {
+const COVER_COLORS = [
+  "bg-primary",
+  "bg-accent",
+  "bg-primary-dark",
+  "bg-secondary",
+  "bg-primary",
+  "bg-accent",
+];
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function getArticles() {
+  try {
+    const posts = await prisma.blogPost.findMany({
+      where: { status: "PUBLISHED" },
+      orderBy: { createdAt: "desc" },
+      include: { author: { select: { name: true } } },
+    });
+    if (posts.length > 0) {
+      return posts.map((post, i) => ({
+        slug: post.slug,
+        title: post.title,
+        excerpt: post.excerpt || "",
+        date: formatDate(post.createdAt),
+        author: post.author.name || "Equipo Vital Emocion",
+        coverColor: post.coverImage || COVER_COLORS[i % COVER_COLORS.length],
+      }));
+    }
+    return PLACEHOLDER_ARTICLES;
+  } catch {
+    return PLACEHOLDER_ARTICLES;
+  }
+}
+
+export default async function BlogPage() {
+  const articles = await getArticles();
+
   return (
     <>
       {/* Hero */}

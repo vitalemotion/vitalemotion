@@ -1,21 +1,6 @@
-"use client";
-
-import { useState, useMemo } from "react";
-import AnimatedSection from "@/components/animations/AnimatedSection";
-import ProductCard from "@/components/store/ProductCard";
-import ProductFilters from "@/components/store/ProductFilters";
-
-export interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  price: number;
-  image: string;
-  type: "DIGITAL" | "PHYSICAL";
-  category: string;
-  tags: string[];
-  description: string;
-}
+import { prisma } from "@/lib/db";
+import TiendaClient from "@/components/store/TiendaClient";
+import type { Product } from "@/components/store/TiendaClient";
 
 export const placeholderProducts: Product[] = [
   {
@@ -52,7 +37,7 @@ export const placeholderProducts: Product[] = [
     category: "Materiales",
     tags: ["emociones", "diario"],
     description:
-      "Un hermoso diario diseñado especificamente para el registro y exploracion de tus emociones. Con prompts diarios, espacios para reflexion y ejercicios de autoconocimiento que te ayudaran a entender mejor tu mundo emocional.",
+      "Un hermoso diario disenado especificamente para el registro y exploracion de tus emociones. Con prompts diarios, espacios para reflexion y ejercicios de autoconocimiento que te ayudaran a entender mejor tu mundo emocional.",
   },
   {
     id: "4",
@@ -88,7 +73,7 @@ export const placeholderProducts: Product[] = [
     category: "Digital",
     tags: ["meditacion", "audio"],
     description:
-      "Coleccion de 15 meditaciones guiadas en formato digital. Desde relajacion profunda hasta visualizacion creativa, cada sesion esta diseñada para diferentes momentos y necesidades emocionales.",
+      "Coleccion de 15 meditaciones guiadas en formato digital. Desde relajacion profunda hasta visualizacion creativa, cada sesion esta disenada para diferentes momentos y necesidades emocionales.",
   },
   {
     id: "7",
@@ -100,7 +85,7 @@ export const placeholderProducts: Product[] = [
     category: "Materiales",
     tags: ["gratitud", "bienestar"],
     description:
-      "Un cuaderno bellamente ilustrado para practicar la gratitud diaria. Con espacios para escribir, reflexionar y visualizar lo positivo en tu vida. 365 paginas para un año completo de practica.",
+      "Un cuaderno bellamente ilustrado para practicar la gratitud diaria. Con espacios para escribir, reflexionar y visualizar lo positivo en tu vida. 365 paginas para un ano completo de practica.",
   },
   {
     id: "8",
@@ -140,70 +125,32 @@ export const placeholderProducts: Product[] = [
   },
 ];
 
-export default function TiendaPage() {
-  const [activeCategory, setActiveCategory] = useState("Todos");
-  const [activeType, setActiveType] = useState("Todos");
-
-  const filteredProducts = useMemo(() => {
-    return placeholderProducts.filter((product) => {
-      const matchesCategory =
-        activeCategory === "Todos" || product.category === activeCategory;
-      const matchesType =
-        activeType === "Todos" ||
-        (activeType === "Fisico" && product.type === "PHYSICAL") ||
-        (activeType === "Digital" && product.type === "DIGITAL");
-      return matchesCategory && matchesType;
+async function getProducts(): Promise<Product[]> {
+  try {
+    const dbProducts = await prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
     });
-  }, [activeCategory, activeType]);
+    if (dbProducts.length > 0) {
+      return dbProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        image: p.images[0] || "#A8C5B8",
+        type: p.type as "DIGITAL" | "PHYSICAL",
+        category: p.category,
+        tags: p.tags,
+        description: p.description,
+      }));
+    }
+    return placeholderProducts;
+  } catch {
+    return placeholderProducts;
+  }
+}
 
-  return (
-    <>
-      {/* Hero */}
-      <section className="bg-secondary py-16 px-6 text-center pt-32">
-        <AnimatedSection animation="fade-up">
-          <h1 className="font-serif text-5xl text-text-primary mb-4">
-            Nuestra Tienda
-          </h1>
-          <p className="text-text-secondary text-lg max-w-2xl mx-auto">
-            Recursos y materiales para tu crecimiento personal
-          </p>
-        </AnimatedSection>
-      </section>
-
-      {/* Products */}
-      <section className="max-w-7xl mx-auto py-12 px-6">
-        <ProductFilters
-          activeCategory={activeCategory}
-          activeType={activeType}
-          onCategoryChange={setActiveCategory}
-          onTypeChange={setActiveType}
-        />
-
-        {filteredProducts.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-text-muted text-lg">
-              No hay productos que coincidan con los filtros seleccionados.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                id={product.id}
-                name={product.name}
-                slug={product.slug}
-                price={product.price}
-                image={product.image}
-                type={product.type}
-                category={product.category}
-                tags={product.tags}
-                index={index}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-    </>
-  );
+export default async function TiendaPage() {
+  const products = await getProducts();
+  return <TiendaClient products={products} />;
 }

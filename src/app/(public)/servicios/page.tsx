@@ -1,8 +1,9 @@
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import ServiceCard from "@/components/servicios/ServiceCard";
 import Link from "next/link";
+import { prisma } from "@/lib/db";
 
-const services = [
+const PLACEHOLDER_SERVICES = [
   {
     name: "Terapia Individual",
     description:
@@ -47,7 +48,33 @@ const services = [
   },
 ];
 
-export default function ServiciosPage() {
+function formatCOP(value: number): string {
+  return `$${value.toLocaleString("es-CO")}`;
+}
+
+async function getServices() {
+  try {
+    const dbServices = await prisma.service.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    });
+    if (dbServices.length > 0) {
+      return dbServices.map((s) => ({
+        name: s.name,
+        description: s.description,
+        duration: `${s.duration} min`,
+        price: formatCOP(s.price),
+      }));
+    }
+    return PLACEHOLDER_SERVICES;
+  } catch {
+    return PLACEHOLDER_SERVICES;
+  }
+}
+
+export default async function ServiciosPage() {
+  const services = await getServices();
+
   return (
     <>
       {/* Hero */}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAvailableSlotsForDate,
   getIntelligentAssignment,
+  getServices,
 } from "@/lib/scheduling";
 
 export async function GET(request: NextRequest) {
@@ -46,10 +47,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get actual service duration from DB/mock
+    let duration = 60;
+    if (serviceId) {
+      const services = await getServices();
+      const service = services.find((s) => s.id === serviceId);
+      if (service) {
+        duration = service.duration;
+      }
+    }
+
     const slots = await getAvailableSlotsForDate(
       targetPsychologistId,
       date,
-      60
+      duration
     );
 
     return NextResponse.json({
