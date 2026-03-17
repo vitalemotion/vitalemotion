@@ -41,6 +41,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Frame sequences (too large for git, generated from video pipeline)
-public/frames/
 scripts/temp/

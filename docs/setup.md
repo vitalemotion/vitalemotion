@@ -19,7 +19,7 @@ Opcional:
 ```bash
 npm install          # tambien ejecuta postinstall -> prisma generate
 cp .env.example .env.local
-npx prisma db push   # no funciona en NixOS (ver docs/deployment.md)
+npx prisma db push
 npx prisma db seed
 npm run dev
 ```

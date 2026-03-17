@@ -59,15 +59,15 @@ Porque:
 
 ### Schema
 
-Las tablas se crearon manualmente con SQL en el SQL Editor de Supabase porque `prisma db push` no funciona desde NixOS (no hay binarios precompilados de Prisma engine para nixos).
+Las tablas se crearon con SQL directo en el SQL Editor de Supabase durante el primer deploy.
 
-Si necesitas recrear el schema desde otro OS:
+Para recrear el schema:
 
 ```bash
 npx prisma db push
 ```
 
-Si estas en NixOS, genera el SQL manualmente desde `prisma/schema.prisma` y ejecutalo en el SQL Editor de Supabase.
+O usar el agente `supabase-sql` para generar el SQL equivalente.
 
 ## Gotchas Del Deploy
 
@@ -91,13 +91,7 @@ Type error: Module '"@prisma/client"' has no exported member 'PrismaClient'.
 
 Vercel Hobby solo permite cron jobs diarios. Expresiones como `*/30 * * * *` causan error en el deploy.
 
-### 4. NixOS y Prisma
-
-Los engine binaries de Prisma no estan disponibles para NixOS. `prisma db push`, `prisma migrate`, etc. fallan con 404 al descargar binarios.
-
-**Workaround**: Ejecutar SQL directo en Supabase SQL Editor, o usar otro OS para operaciones de Prisma CLI.
-
-### 5. Nombre de proyecto en Vercel
+### 4. Nombre de proyecto en Vercel
 
 Si el nombre deseado ya esta en uso, Vercel lo rechaza silenciosamente o le agrega un sufijo. Verificar el nombre final despues del deploy.
 

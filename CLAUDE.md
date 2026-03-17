@@ -74,6 +74,5 @@ Especialmente:
 - El build puede tardar mas desde que `Sanity Studio` forma parte del proyecto.
 - `postinstall` ejecuta `prisma generate` automaticamente.
 - `prisma/seed.ts` esta excluido de `tsconfig.json` (no es parte de la app).
-- `prisma db push` no funciona en NixOS (usar SQL directo en Supabase).
 - No documentar secretos reales en el repo.
 - `docs/` es la fuente de verdad documental; `docs/plans/` queda como archivo historico.
