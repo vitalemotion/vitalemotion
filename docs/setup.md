@@ -17,13 +17,14 @@ Opcional:
 ## Instalacion
 
 ```bash
-npm install
+npm install          # tambien ejecuta postinstall -> prisma generate
 cp .env.example .env.local
-npx prisma generate
-npx prisma db push
+npx prisma db push   # no funciona en NixOS (ver docs/deployment.md)
 npx prisma db seed
 npm run dev
 ```
+
+Nota: `prisma generate` se ejecuta automaticamente via `postinstall` en `package.json`.
 
 ## Variables De Entorno
 

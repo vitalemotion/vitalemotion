@@ -1,22 +1,23 @@
-# Documentación
+# Documentacion
 
 ## Fuente de verdad
 
-La documentación vigente del proyecto está en:
+La documentacion vigente del proyecto esta en:
 
 1. `README.md`
 2. este directorio `docs/`
 3. `.env.example`
-4. el código fuente
+4. el codigo fuente
 
-## Guías disponibles
+## Guias disponibles
 
-- [Setup](setup.md)
-- [Arquitectura](architecture.md)
-- [Integraciones](integrations.md)
-- [Contenido editorial](content-management.md)
+- [Setup](setup.md) — instalacion, variables de entorno, verificacion
+- [Arquitectura](architecture.md) — rutas, seguridad, ownership de datos
+- [Integraciones](integrations.md) — Sanity, Cal.com, PayPal, WhatsApp
+- [Contenido editorial](content-management.md) — Sanity Studio y schemas
+- [Deployment](deployment.md) — Vercel, Supabase, gotchas de produccion
 
-## Archivo histórico
+## Archivo historico
 
-Los documentos en `docs/plans/` se conservan como contexto histórico.
-No deben usarse como guía operativa actual.
+Los documentos en `docs/plans/` se conservan como contexto historico.
+No deben usarse como guia operativa actual.

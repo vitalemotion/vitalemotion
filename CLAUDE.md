@@ -60,8 +60,20 @@ Especialmente:
 - `ALLOW_MOCK_INTEGRATIONS`
 - `ALLOW_MOCK_SCHEDULING_DATA`
 
+## Produccion
+
+- **URL**: `https://somos-vital-emocion.vercel.app`
+- **DB**: Supabase Session Pooler (puerto 5432, IPv4)
+- **Repo**: `vitalemotion/vitalemocion` (GitHub, publico)
+- **Deploy**: push a `main` → Vercel auto-deploy
+- **Cron**: solo diarios en Hobby plan (`0 8 * * *`)
+- Ver `docs/deployment.md` para gotchas y detalles completos.
+
 ## Notas
 
 - El build puede tardar mas desde que `Sanity Studio` forma parte del proyecto.
+- `postinstall` ejecuta `prisma generate` automaticamente.
+- `prisma/seed.ts` esta excluido de `tsconfig.json` (no es parte de la app).
+- `prisma db push` no funciona en NixOS (usar SQL directo en Supabase).
 - No documentar secretos reales en el repo.
 - `docs/` es la fuente de verdad documental; `docs/plans/` queda como archivo historico.
