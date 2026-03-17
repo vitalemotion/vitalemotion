@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { useCartStore } from "@/stores/cart";
+import { useIsClient } from "@/lib/use-is-client";
 
 const navLinks = [
   { href: "/", label: "Inicio" },
@@ -21,11 +22,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const toggleCart = useCartStore((s) => s.toggleCart);
   const itemCount = useCartStore((s) => s.itemCount);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsClient();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);

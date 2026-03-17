@@ -15,6 +15,7 @@
 import { createWriteStream, existsSync, mkdirSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
+import { ReadableStream as NodeReadableStream } from "node:stream/web";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -89,8 +90,14 @@ async function downloadFile(url: string, dest: string): Promise<void> {
   }
 
   const ws = createWriteStream(dest);
+  if (!res.body) {
+    throw new Error(`Download response body missing for ${url}`);
+  }
   // Convert ReadableStream to Node Readable
-  await pipeline(Readable.fromWeb(res.body as any), ws);
+  await pipeline(
+    Readable.fromWeb(res.body as unknown as NodeReadableStream<Uint8Array>),
+    ws
+  );
   console.log("  Done.");
 }
 

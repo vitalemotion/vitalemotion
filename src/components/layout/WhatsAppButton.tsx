@@ -1,9 +1,18 @@
 "use client";
 
-export default function WhatsAppButton() {
+export default function WhatsAppButton({
+  phoneNumber = "573001234567",
+}: {
+  phoneNumber?: string;
+}) {
+  const normalizedPhoneNumber = phoneNumber.replace(/\D/g, "");
+  if (!normalizedPhoneNumber) {
+    return null;
+  }
+
   return (
     <a
-      href="https://wa.me/573001234567"
+      href={`https://wa.me/${normalizedPhoneNumber}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Contactar por WhatsApp"

@@ -1,48 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-
-const mockOrderDetail = {
-  id: "ord-abc12345",
-  patientName: "Laura Sanchez",
-  patientEmail: "laura@example.com",
-  patientPhone: "+57 300 123 4567",
-  status: "PAID" as const,
-  subtotal: 70000,
-  shippingCost: 8000,
-  total: 78000,
-  paypalOrderId: "PAYPAL-7X8Y9Z",
-  shippingAddress: {
-    street: "Calle 45 #12-34",
-    city: "Bogota",
-    state: "Cundinamarca",
-    zip: "110111",
-  },
-  items: [
-    {
-      id: "item-1",
-      productName: "El Arte de la Calma",
-      productType: "PHYSICAL",
-      quantity: 1,
-      price: 45000,
-    },
-    {
-      id: "item-2",
-      productName: "Guia de Mindfulness",
-      productType: "DIGITAL",
-      quantity: 1,
-      price: 25000,
-    },
-  ],
-  createdAt: "2026-03-08T14:30:00.000Z",
-  updatedAt: "2026-03-08T14:30:00.000Z",
-};
+import { handleRouteError, requireDatabase, requireRole } from "@/lib/route";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
   try {
+    await requireRole(["ADMIN"]);
+    const prisma = requireDatabase();
+    const { id } = await params;
+
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
@@ -53,17 +20,17 @@ export async function GET(
         },
         items: {
           include: {
-            product: { select: { name: true, type: true } },
+            product: { select: { name: true, type: true, digitalFile: true } },
           },
         },
       },
     });
 
     if (!order) {
-      return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
+      return NextResponse.json({ error: "Pedido no encontrado." }, { status: 404 });
     }
 
-    const formatted = {
+    return NextResponse.json({
       id: order.id,
       patientName: order.patient.user.name || order.patient.user.email,
       patientEmail: order.patient.user.email,
@@ -83,12 +50,9 @@ export async function GET(
       })),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
-    };
-
-    return NextResponse.json(formatted);
-  } catch {
-    console.warn("[Admin Orders] DB unavailable, returning mock detail");
-    return NextResponse.json({ ...mockOrderDetail, id });
+    });
+  } catch (error) {
+    return handleRouteError(error, "No se pudo cargar el pedido.");
   }
 }
 
@@ -96,13 +60,18 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
   try {
+    await requireRole(["ADMIN"]);
+    const prisma = requireDatabase();
+    const { id } = await params;
     const body = await request.json();
     const { status } = body;
 
     if (!status) {
-      return NextResponse.json({ error: "Status es requerido" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Status es requerido." },
+        { status: 400 }
+      );
     }
 
     const order = await prisma.order.update({
@@ -112,7 +81,6 @@ export async function PUT(
 
     return NextResponse.json(order);
   } catch (error) {
-    console.error("[Admin Orders] Failed to update:", error);
-    return NextResponse.json({ id, status: "updated", mock: true });
+    return handleRouteError(error, "No se pudo actualizar el pedido.");
   }
 }

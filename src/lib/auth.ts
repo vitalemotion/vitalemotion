@@ -1,11 +1,14 @@
-import { NextAuthOptions } from "next-auth";
+import { type NextAuthOptions } from "next-auth";
+import type { Adapter } from "next-auth/adapters";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "./db";
+import { getPrismaClient, getRequiredPrisma } from "./db";
 import bcrypt from "bcryptjs";
 
+const prisma = getPrismaClient();
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  ...(prisma ? { adapter: PrismaAdapter(prisma) as Adapter } : {}),
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
@@ -21,7 +24,8 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({
+        const db = getRequiredPrisma();
+        const user = await db.user.findUnique({
           where: { email: credentials.email },
         });
 

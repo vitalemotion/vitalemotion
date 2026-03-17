@@ -5,6 +5,7 @@ import TestimonialsCarousel from "@/components/home/TestimonialsCarousel";
 import CTASection from "@/components/home/CTASection";
 import FeaturedProducts from "@/components/home/FeaturedProducts";
 import { prisma } from "@/lib/db";
+import { getHomePageContent } from "@/sanity/lib/content";
 
 interface FeaturedProduct {
   title: string;
@@ -57,19 +58,43 @@ async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
 }
 
 export default async function Home() {
+  const homeContent = await getHomePageContent();
   const featuredProducts = await getFeaturedProducts();
+  const heroTitle =
+    homeContent?.heroTitle || "Tu bienestar emocional comienza aqui";
+  const heroSubtitle =
+    homeContent?.heroSubtitle ||
+    "Psicologos profesionales dedicados a tu salud mental";
 
   return (
     <main>
       <HeroScroll
         framesPath="/frames/hero"
         frameCount={192}
-        title="Tu bienestar emocional comienza aqui"
-        subtitle="Psicologos profesionales dedicados a tu salud mental"
+        title={heroTitle}
+        subtitle={heroSubtitle}
       />
-      <ValueProposition />
-      <TestimonialsCarousel />
-      <CTASection />
+      <ValueProposition
+        eyebrow={homeContent?.servicesEyebrow || undefined}
+        heading={homeContent?.servicesHeading || undefined}
+        services={
+          homeContent?.serviceHighlights?.length
+            ? homeContent.serviceHighlights
+            : undefined
+        }
+      />
+      <TestimonialsCarousel
+        heading={homeContent?.testimonialsHeading || undefined}
+        testimonials={
+          homeContent?.testimonials?.length ? homeContent.testimonials : undefined
+        }
+      />
+      <CTASection
+        title={homeContent?.ctaTitle || undefined}
+        description={homeContent?.ctaDescription || undefined}
+        buttonLabel={homeContent?.ctaButtonLabel || undefined}
+        buttonHref={homeContent?.ctaButtonHref || undefined}
+      />
       <FeaturedProducts products={featuredProducts} />
     </main>
   );

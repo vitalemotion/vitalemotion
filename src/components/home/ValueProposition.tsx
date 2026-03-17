@@ -1,6 +1,11 @@
 import AnimatedSection from "@/components/animations/AnimatedSection";
 
-const services = [
+interface ServiceHighlight {
+  title: string;
+  description: string;
+}
+
+const defaultServices = [
   {
     title: "Terapia Individual",
     description:
@@ -70,23 +75,38 @@ const services = [
   },
 ];
 
-export default function ValueProposition() {
+function getServiceIcon(title: string, index: number) {
+  const match = defaultServices.find((service) => service.title === title);
+  return match?.icon || defaultServices[index % defaultServices.length]?.icon;
+}
+
+export default function ValueProposition({
+  eyebrow = "NUESTROS SERVICIOS",
+  heading = "Cuidamos de tu salud mental",
+  services = defaultServices,
+}: {
+  eyebrow?: string;
+  heading?: string;
+  services?: ServiceHighlight[];
+}) {
+  const resolvedServices = services.length > 0 ? services : defaultServices;
+
   return (
     <section className="py-20 px-6">
       <div className="max-w-6xl mx-auto">
         {/* Section header */}
         <AnimatedSection animation="fade-up" className="text-center mb-12">
           <p className="text-sm uppercase tracking-widest text-accent mb-3">
-            NUESTROS SERVICIOS
+            {eyebrow}
           </p>
           <h2 className="font-serif text-4xl text-text-primary">
-            Cuidamos de tu salud mental
+            {heading}
           </h2>
         </AnimatedSection>
 
         {/* Cards grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {services.map((service, index) => (
+          {resolvedServices.map((service, index) => (
             <AnimatedSection
               key={service.title}
               animation="fade-up"
@@ -94,7 +114,7 @@ export default function ValueProposition() {
             >
               <div className="bg-surface rounded-2xl p-8 text-center shadow-lg shadow-black/5">
                 <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  {service.icon}
+                  {getServiceIcon(service.title, index)}
                 </div>
                 <h3 className="font-serif text-xl mb-3">{service.title}</h3>
                 <p className="text-text-secondary">{service.description}</p>

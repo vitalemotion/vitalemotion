@@ -3,6 +3,13 @@ import Link from "next/link";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import BlogCard from "@/components/blog/BlogCard";
 import { prisma } from "@/lib/db";
+import {
+  getSanityPostBySlug,
+  getSanityPostSlugs,
+  getSanityRelatedPosts,
+} from "@/sanity/lib/content";
+import { SanityPortableText } from "@/sanity/lib/portable-text";
+import type { PortableTextBlock } from "@/sanity/lib/types";
 
 interface Article {
   slug: string;
@@ -11,7 +18,9 @@ interface Article {
   date: string;
   author: string;
   coverColor: string;
+  coverImageUrl?: string | null;
   content: string[];
+  body?: PortableTextBlock[];
 }
 
 const PLACEHOLDER_ARTICLES: Article[] = [
@@ -122,6 +131,15 @@ function formatDate(date: Date): string {
 }
 
 async function getArticle(slug: string): Promise<Article | null> {
+  const sanityPost = await getSanityPostBySlug(slug);
+  if (sanityPost) {
+    return {
+      ...sanityPost,
+      content: [],
+      body: sanityPost.body,
+    };
+  }
+
   try {
     const post = await prisma.blogPost.findUnique({
       where: { slug },
@@ -135,6 +153,7 @@ async function getArticle(slug: string): Promise<Article | null> {
         date: formatDate(post.createdAt),
         author: post.author.name || "Equipo Vital Emocion",
         coverColor: post.coverImage || "bg-primary",
+        coverImageUrl: null,
         content: post.content.split("\n\n"),
       };
     }
@@ -145,6 +164,15 @@ async function getArticle(slug: string): Promise<Article | null> {
 }
 
 async function getRelatedArticles(currentSlug: string): Promise<Article[]> {
+  const sanityPosts = await getSanityRelatedPosts(currentSlug);
+  if (sanityPosts.length > 0) {
+    return sanityPosts.map((post) => ({
+      ...post,
+      content: [],
+      body: [],
+    }));
+  }
+
   try {
     const posts = await prisma.blogPost.findMany({
       where: { status: "PUBLISHED", slug: { not: currentSlug } },
@@ -160,6 +188,7 @@ async function getRelatedArticles(currentSlug: string): Promise<Article[]> {
         date: formatDate(post.createdAt),
         author: post.author.name || "Equipo Vital Emocion",
         coverColor: post.coverImage || "bg-primary",
+        coverImageUrl: null,
         content: post.content.split("\n\n"),
       }));
     }
@@ -170,6 +199,11 @@ async function getRelatedArticles(currentSlug: string): Promise<Article[]> {
 }
 
 async function getAllSlugs(): Promise<string[]> {
+  const sanitySlugs = await getSanityPostSlugs();
+  if (sanitySlugs.length > 0) {
+    return sanitySlugs;
+  }
+
   try {
     const posts = await prisma.blogPost.findMany({
       where: { status: "PUBLISHED" },
@@ -267,14 +301,27 @@ export default async function BlogArticlePage({ params }: PageProps) {
             <span>{article.author}</span>
           </div>
 
-          <div className={`${article.coverColor} h-64 rounded-2xl mt-8`} />
+          <div
+            className={`${article.coverImageUrl ? "" : article.coverColor} h-64 rounded-2xl mt-8 bg-cover bg-center`}
+            style={
+              article.coverImageUrl
+                ? {
+                    backgroundImage: `linear-gradient(rgba(0,0,0,0.14), rgba(0,0,0,0.14)), url(${article.coverImageUrl})`,
+                  }
+                : undefined
+            }
+          />
 
           <div className="mt-10 space-y-6">
-            {article.content.map((paragraph, i) => (
-              <p key={i} className="text-text-secondary leading-relaxed">
-                {paragraph}
-              </p>
-            ))}
+            {article.body && article.body.length > 0 ? (
+              <SanityPortableText value={article.body} />
+            ) : (
+              article.content.map((paragraph, i) => (
+                <p key={i} className="text-text-secondary leading-relaxed">
+                  {paragraph}
+                </p>
+              ))
+            )}
           </div>
         </AnimatedSection>
       </article>

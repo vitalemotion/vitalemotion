@@ -1,35 +1,93 @@
-import { NextResponse } from "next/server";
-
-// Mock: appointment start times keyed by id
-const appointmentStartTimes: Record<string, string> = {
-  "apt-1": "2026-03-15T10:00:00Z",
-  "apt-2": "2026-03-20T14:00:00Z",
-  "apt-3": "2026-03-28T09:00:00Z",
-  "apt-4": "2026-03-01T11:00:00Z",
-  "apt-5": "2026-02-22T10:00:00Z",
-};
+import { NextRequest, NextResponse } from "next/server";
+import { cancelBooking } from "@/lib/calcom";
+import { handleRouteError, requireDatabase, requireRole } from "@/lib/route";
 
 export async function POST(
-  _request: Request,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const startTimeStr = appointmentStartTimes[id];
+  try {
+    const session = await requireRole(["PATIENT"]);
+    const prisma = requireDatabase();
+    const { id } = await params;
 
-  if (!startTimeStr) {
-    return NextResponse.json({ error: "Cita no encontrada" }, { status: 404 });
+    const patient = await prisma.patient.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json(
+        { error: "Perfil de paciente no encontrado." },
+        { status: 404 }
+      );
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        patientId: true,
+        startTime: true,
+        calcomEventId: true,
+        status: true,
+      },
+    });
+
+    if (!appointment || appointment.patientId !== patient.id) {
+      return NextResponse.json({ error: "Cita no encontrada." }, { status: 404 });
+    }
+
+    if (appointment.status === "CANCELLED") {
+      return NextResponse.json(
+        { error: "La cita ya fue cancelada." },
+        { status: 400 }
+      );
+    }
+
+    if (appointment.status === "COMPLETED" || appointment.status === "NO_SHOW") {
+      return NextResponse.json(
+        { error: "Esta cita ya no se puede cancelar." },
+        { status: 400 }
+      );
+    }
+
+    const hoursUntilStart =
+      (appointment.startTime.getTime() - Date.now()) / (1000 * 60 * 60);
+
+    if (hoursUntilStart < 24) {
+      return NextResponse.json(
+        {
+          error:
+            "No se puede cancelar una cita con menos de 24 horas de anticipacion.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (appointment.calcomEventId) {
+      const bookingId = Number(appointment.calcomEventId);
+      if (!Number.isNaN(bookingId)) {
+        const result = await cancelBooking(bookingId);
+        if (!result.success) {
+          return NextResponse.json(
+            { error: "No se pudo cancelar la reserva externa." },
+            { status: 502 }
+          );
+        }
+      }
+    }
+
+    await prisma.appointment.update({
+      where: { id },
+      data: { status: "CANCELLED" },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Cita cancelada exitosamente.",
+    });
+  } catch (error) {
+    return handleRouteError(error, "No se pudo cancelar la cita.");
   }
-
-  const startTime = new Date(startTimeStr);
-  const now = new Date();
-  const hoursUntilStart = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-  if (hoursUntilStart < 24) {
-    return NextResponse.json(
-      { error: "No se puede cancelar una cita con menos de 24 horas de anticipacion" },
-      { status: 400 }
-    );
-  }
-
-  return NextResponse.json({ success: true, message: "Cita cancelada exitosamente" });
 }

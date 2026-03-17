@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 interface TeamFormData {
   name: string;
   email: string;
+  password?: string;
   bio: string;
   specialties: string[];
   calcomUserId: string;
@@ -45,6 +46,7 @@ export default function TeamForm({ initialData, mode }: TeamFormProps) {
   const [form, setForm] = useState<TeamFormData>({
     name: initialData?.name || "",
     email: initialData?.email || "",
+    password: "",
     bio: initialData?.bio || "",
     specialties: initialData?.specialties || [],
     calcomUserId: initialData?.calcomUserId || "",
@@ -152,6 +154,25 @@ export default function TeamForm({ initialData, mode }: TeamFormProps) {
           placeholder="email@vitalemocion.com"
         />
       </div>
+
+      {mode === "create" && (
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-text-primary mb-2">
+            Contrasena inicial
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            value={form.password}
+            onChange={handleChange}
+            className="w-full bg-background border border-transparent focus:border-primary rounded-lg p-3 text-text-primary placeholder:text-text-muted outline-none transition-colors"
+            placeholder="Minimo 8 caracteres"
+          />
+        </div>
+      )}
 
       {/* Bio */}
       <div>

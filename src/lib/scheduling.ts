@@ -1,7 +1,15 @@
-import { getAvailableSlots, TimeSlot } from "./calcom";
+import {
+  getAvailableSlots,
+  isCalcomMockEnabled,
+  TimeSlot,
+} from "./calcom";
+import {
+  IntegrationError,
+  isMockSchedulingDataEnabled,
+} from "./integrations";
 
 // ---------------------------------------------------------------------------
-// Mock data — used when DB is not available (dev / preview)
+// Mock data — available only when explicitly enabled for local preview
 // ---------------------------------------------------------------------------
 
 interface MockPsychologist {
@@ -107,7 +115,7 @@ const MOCK_APPOINTMENT_COUNTS: Record<string, number> = {
 };
 
 // ---------------------------------------------------------------------------
-// DB helpers — attempt Prisma, fall back to mock
+// DB helpers
 // ---------------------------------------------------------------------------
 
 async function getPrisma() {
@@ -118,6 +126,27 @@ async function getPrisma() {
     return prisma;
   } catch {
     return null;
+  }
+}
+
+function getLoadWindow(dateRange: { from: string; to: string }) {
+  const baseDate = new Date(dateRange.from);
+  const windowStart = new Date(baseDate);
+  windowStart.setHours(0, 0, 0, 0);
+
+  const windowEnd = new Date(windowStart);
+  windowEnd.setDate(windowEnd.getDate() + 7);
+  windowEnd.setMilliseconds(windowEnd.getMilliseconds() - 1);
+
+  return { windowStart, windowEnd };
+}
+
+function assertMockSchedulingDataEnabled() {
+  if (!isMockSchedulingDataEnabled()) {
+    throw new IntegrationError(
+      "SCHEDULING_DATA_UNAVAILABLE",
+      "La agenda no esta disponible porque los datos de programacion no responden."
+    );
   }
 }
 
@@ -152,6 +181,7 @@ export async function getIntelligentAssignment(
   dateRange: { from: string; to: string }
 ): Promise<AssignedPsychologist | null> {
   const prisma = await getPrisma();
+  const { windowStart, windowEnd } = getLoadWindow(dateRange);
 
   if (prisma) {
     try {
@@ -172,8 +202,7 @@ export async function getIntelligentAssignment(
         const count = await prisma.appointment.count({
           where: {
             psychologistId: anyPsychologist.id,
-            startTime: { gte: new Date(dateRange.from) },
-            endTime: { lte: new Date(dateRange.to) },
+            startTime: { gte: windowStart, lte: windowEnd },
             status: { in: ["PENDING", "CONFIRMED"] },
           },
         });
@@ -195,8 +224,7 @@ export async function getIntelligentAssignment(
           const count = await prisma.appointment.count({
             where: {
               psychologistId: psy.id,
-              startTime: { gte: new Date(dateRange.from) },
-              endTime: { lte: new Date(dateRange.to) },
+              startTime: { gte: windowStart, lte: windowEnd },
               status: { in: ["PENDING", "CONFIRMED"] },
             },
           });
@@ -218,11 +246,12 @@ export async function getIntelligentAssignment(
       );
       return psychologistsWithLoad[0] || null;
     } catch (error) {
-      console.error("[Scheduling] DB query failed, using mock:", error);
+      console.error("[Scheduling] DB query failed:", error);
+      assertMockSchedulingDataEnabled();
     }
   }
 
-  // Mock fallback
+  assertMockSchedulingDataEnabled();
   return getIntelligentAssignmentMock(serviceId);
 }
 
@@ -277,9 +306,11 @@ export async function getServices(): Promise<SchedulingService[]> {
       }));
     } catch (error) {
       console.error("[Scheduling] Failed to fetch services from DB:", error);
+      assertMockSchedulingDataEnabled();
     }
   }
 
+  assertMockSchedulingDataEnabled();
   return MOCK_SERVICES;
 }
 
@@ -313,10 +344,11 @@ export async function getPsychologistsForService(
       }
     } catch (error) {
       console.error("[Scheduling] Failed to fetch psychologists from DB:", error);
+      assertMockSchedulingDataEnabled();
     }
   }
 
-  // Mock fallback
+  assertMockSchedulingDataEnabled();
   const service = MOCK_SERVICES.find((s) => s.id === serviceId);
   if (!service) return MOCK_PSYCHOLOGISTS.map(toAssigned);
 
@@ -336,7 +368,7 @@ export async function getAvailableSlotsForDate(
 ): Promise<TimeSlot[]> {
   // Try to get the psychologist's calcomUserId from DB
   const prisma = await getPrisma();
-  let calcomUserId = psychologistId;
+  let calcomUserId: string | null = null;
 
   if (prisma) {
     try {
@@ -347,13 +379,26 @@ export async function getAvailableSlotsForDate(
         calcomUserId = psy.calcomUserId;
       }
     } catch {
-      // Use mock calcom user
-      const mockPsy = MOCK_PSYCHOLOGISTS.find((p) => p.id === psychologistId);
-      if (mockPsy) calcomUserId = mockPsy.calcomUserId;
+      assertMockSchedulingDataEnabled();
+      if (isCalcomMockEnabled()) {
+        const mockPsy = MOCK_PSYCHOLOGISTS.find((p) => p.id === psychologistId);
+        if (mockPsy) calcomUserId = mockPsy.calcomUserId;
+      }
     }
   } else {
+    assertMockSchedulingDataEnabled();
+  }
+
+  if (isCalcomMockEnabled() && !calcomUserId) {
     const mockPsy = MOCK_PSYCHOLOGISTS.find((p) => p.id === psychologistId);
     if (mockPsy) calcomUserId = mockPsy.calcomUserId;
+  }
+
+  if (!calcomUserId) {
+    throw new IntegrationError(
+      "CALCOM_USER_NOT_CONFIGURED",
+      "El profesional seleccionado no tiene una agenda externa configurada."
+    );
   }
 
   return getAvailableSlots(calcomUserId, date, date, duration);

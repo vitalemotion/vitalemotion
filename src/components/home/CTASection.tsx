@@ -3,7 +3,17 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 
-export default function CTASection() {
+export default function CTASection({
+  title = "Comienza tu camino hacia el bienestar",
+  description = "Agenda tu primera cita y da el primer paso hacia una vida mas plena.",
+  buttonLabel = "Agendar Cita",
+  buttonHref = "/agendar",
+}: {
+  title?: string;
+  description?: string;
+  buttonLabel?: string;
+  buttonHref?: string;
+}) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -164,16 +174,16 @@ export default function CTASection() {
       {/* Content */}
       <div className="cta-content relative max-w-2xl mx-auto px-6 z-30">
         <h2 className="cta-title text-2xl sm:text-3xl md:text-5xl font-serif text-white mb-3 md:mb-4 drop-shadow-lg">
-          Comienza tu camino hacia el bienestar
+          {title}
         </h2>
         <p className="cta-desc text-white/80 mb-6 md:mb-10 text-base md:text-lg drop-shadow">
-          Agenda tu primera cita y da el primer paso hacia una vida mas plena.
+          {description}
         </p>
         <Link
-          href="/agendar"
+          href={buttonHref}
           className="cta-button inline-block bg-accent text-white rounded-xl px-8 py-4 font-medium transition-all duration-300 hover:bg-accent/90 hover:scale-[1.02] hover:shadow-lg active:scale-95"
         >
-          Agendar Cita
+          {buttonLabel}
         </Link>
       </div>
     </section>

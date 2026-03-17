@@ -1,57 +1,11 @@
 "use client";
 
-import { useSchedulingStore, SchedulingService } from "@/stores/scheduling";
+import { useEffect, useState } from "react";
+import { useSchedulingStore, type SchedulingService } from "@/stores/scheduling";
 
-const PLACEHOLDER_SERVICES: SchedulingService[] = [
-  {
-    id: "svc-1",
-    name: "Terapia Individual",
-    duration: 50,
-    price: 80000,
-    description:
-      "Sesiones de 50 minutos enfocadas en tus necesidades personales.",
-  },
-  {
-    id: "svc-2",
-    name: "Terapia de Pareja",
-    duration: 90,
-    price: 120000,
-    description:
-      "Mejora la comunicacion y fortalece tu relacion. Sesiones de 90 minutos.",
-  },
-  {
-    id: "svc-3",
-    name: "Evaluacion Psicologica",
-    duration: 120,
-    price: 150000,
-    description:
-      "Evaluacion integral con pruebas estandarizadas para un diagnostico preciso.",
-  },
-  {
-    id: "svc-4",
-    name: "Talleres de Mindfulness",
-    duration: 60,
-    price: 40000,
-    description:
-      "Grupos reducidos para aprender tecnicas de mindfulness y reduccion de estres.",
-  },
-  {
-    id: "svc-5",
-    name: "Terapia Infantil",
-    duration: 45,
-    price: 70000,
-    description:
-      "Intervencion especializada para ninos y adolescentes con enfoque ludico.",
-  },
-  {
-    id: "svc-6",
-    name: "Coaching de Vida",
-    duration: 50,
-    price: 90000,
-    description:
-      "Acompanamiento profesional para alcanzar tus metas personales y profesionales.",
-  },
-];
+interface ServicesResponse {
+  services?: SchedulingService[];
+}
 
 const serviceIcons: Record<string, string> = {
   "Terapia Individual": "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2",
@@ -71,11 +25,88 @@ function formatPrice(price: number): string {
   }).format(price);
 }
 
+function LoadingCard({ index }: { index: number }) {
+  return (
+    <div
+      className="rounded-2xl border-2 border-transparent bg-surface p-6"
+      aria-hidden="true"
+      style={{ animationDelay: `${index * 100}ms` }}
+    >
+      <div className="mb-4 h-12 w-12 animate-pulse rounded-xl bg-primary/10" />
+      <div className="h-6 w-2/3 animate-pulse rounded bg-secondary/80" />
+      <div className="mt-3 h-4 w-full animate-pulse rounded bg-secondary/60" />
+      <div className="mt-2 h-4 w-5/6 animate-pulse rounded bg-secondary/60" />
+      <div className="mt-4 flex gap-3">
+        <div className="h-6 w-20 animate-pulse rounded-full bg-primary/10" />
+        <div className="h-6 w-24 animate-pulse rounded-full bg-secondary/60" />
+      </div>
+    </div>
+  );
+}
+
 export default function StepService() {
-  const { selectedService, setService, nextStep } = useSchedulingStore();
+  const {
+    selectedService,
+    setService,
+    setPsychologist,
+    setSlot,
+    setDate,
+    nextStep,
+  } = useSchedulingStore();
+  const [services, setServices] = useState<SchedulingService[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [requestKey, setRequestKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadServices() {
+      setLoadingServices(true);
+      setLoadError(null);
+
+      try {
+        const response = await fetch("/api/scheduling/services", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("No se pudieron cargar los servicios");
+        }
+
+        const data: ServicesResponse = await response.json();
+        setServices(Array.isArray(data.services) ? data.services : []);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error("[Scheduling] Failed to load services:", error);
+        setServices([]);
+        setLoadError("No pudimos cargar los servicios disponibles.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingServices(false);
+        }
+      }
+    }
+
+    loadServices();
+
+    return () => controller.abort();
+  }, [requestKey]);
 
   const handleSelect = (service: SchedulingService) => {
+    const serviceChanged = selectedService?.id !== service.id;
+
     setService(service);
+
+    if (serviceChanged) {
+      setPsychologist(null);
+      setSlot("");
+      setDate("");
+    }
   };
 
   const handleNext = () => {
@@ -85,94 +116,122 @@ export default function StepService() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-8">
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-8 text-center">
         <h2 className="font-serif text-3xl text-text-primary">
           Selecciona un servicio
         </h2>
-        <p className="text-text-secondary mt-2">
+        <p className="mt-2 text-text-secondary">
           Elige el tipo de sesion que mejor se adapte a tus necesidades
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {PLACEHOLDER_SERVICES.map((service) => {
-          const isSelected = selectedService?.id === service.id;
-          return (
-            <button
-              key={service.id}
-              onClick={() => handleSelect(service)}
-              className={`text-left rounded-2xl p-6 transition-all duration-300 border-2 ${
-                isSelected
-                  ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                  : "border-transparent bg-surface hover:border-primary/30 hover:shadow-md"
-              }`}
-            >
-              {/* Icon */}
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors ${
-                  isSelected ? "bg-primary text-white" : "bg-primary/10 text-primary"
+      {loadingServices ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }, (_, index) => (
+            <LoadingCard key={index} index={index} />
+          ))}
+        </div>
+      ) : loadError ? (
+        <div className="rounded-2xl bg-surface p-8 text-center">
+          <p className="text-text-primary">{loadError}</p>
+          <button
+            onClick={() => setRequestKey((current) => current + 1)}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-white transition-colors hover:bg-primary-dark"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : services.length === 0 ? (
+        <div className="rounded-2xl bg-surface p-8 text-center">
+          <p className="text-text-primary">
+            No hay servicios configurados en este momento.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {services.map((service) => {
+            const isSelected = selectedService?.id === service.id;
+            return (
+              <button
+                key={service.id}
+                onClick={() => handleSelect(service)}
+                className={`text-left rounded-2xl p-6 transition-all duration-300 border-2 ${
+                  isSelected
+                    ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+                    : "border-transparent bg-surface hover:border-primary/30 hover:shadow-md"
                 }`}
               >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <div
+                  className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
+                    isSelected
+                      ? "bg-primary text-white"
+                      : "bg-primary/10 text-primary"
+                  }`}
                 >
-                  <path d={serviceIcons[service.name] || serviceIcons["Terapia Individual"]} />
-                </svg>
-              </div>
-
-              <h3 className="font-serif text-lg text-text-primary">
-                {service.name}
-              </h3>
-              <p className="text-text-secondary text-sm mt-1 leading-relaxed">
-                {service.description}
-              </p>
-              <div className="flex items-center gap-3 mt-4">
-                <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-medium">
-                  {service.duration} min
-                </span>
-                <span className="text-accent font-semibold text-sm">
-                  {formatPrice(service.price)}
-                </span>
-              </div>
-
-              {/* Selected indicator */}
-              {isSelected && (
-                <div className="mt-4 flex items-center gap-2 text-primary text-sm font-medium">
                   <svg
-                    width="16"
-                    height="16"
+                    width="22"
+                    height="22"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="3"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
-                    <polyline points="20 6 9 17 4 12" />
+                    <path
+                      d={
+                        serviceIcons[service.name] ||
+                        serviceIcons["Terapia Individual"]
+                      }
+                    />
                   </svg>
-                  Seleccionado
                 </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
 
-      {/* Next button */}
+                <h3 className="font-serif text-lg text-text-primary">
+                  {service.name}
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+                  {service.description}
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    {service.duration} min
+                  </span>
+                  <span className="text-sm font-semibold text-accent">
+                    {formatPrice(service.price)}
+                  </span>
+                </div>
+
+                {isSelected && (
+                  <div className="mt-4 flex items-center gap-2 text-sm font-medium text-primary">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Seleccionado
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="mt-10 text-center">
         <button
           onClick={handleNext}
-          disabled={!selectedService}
+          disabled={!selectedService || loadingServices || services.length === 0}
           className={`inline-flex items-center gap-2 rounded-xl px-8 py-4 font-semibold transition-all duration-300 ${
-            selectedService
+            selectedService && !loadingServices && services.length > 0
               ? "bg-primary text-white hover:bg-primary-dark shadow-lg shadow-primary/20"
               : "bg-surface text-text-muted cursor-not-allowed"
           }`}

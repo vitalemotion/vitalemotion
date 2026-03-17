@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  isWhatsAppDeliveryAvailable,
   sendWhatsAppReminder,
   messageTemplates,
   formatDateTimeForMessage,
   formatTimeForMessage,
 } from "@/lib/whatsapp";
+import { handleRouteError, requireDatabase } from "@/lib/route";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
@@ -17,13 +19,25 @@ const CRON_SECRET = process.env.CRON_SECRET || "";
  * - 1-hour reminders for appointments happening in the next hour
  */
 export async function GET(request: NextRequest) {
+  if (!CRON_SECRET) {
+    return NextResponse.json(
+      { error: "CRON_SECRET no esta configurado." },
+      { status: 503 }
+    );
+  }
+
   // Verify authorization
   const authHeader = request.headers.get("authorization");
 
-  if (CRON_SECRET) {
-    if (authHeader !== `Bearer ${CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (authHeader !== `Bearer ${CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isWhatsAppDeliveryAvailable()) {
+    return NextResponse.json(
+      { error: "WhatsApp no esta configurado para enviar recordatorios." },
+      { status: 503 }
+    );
   }
 
   const now = new Date();
@@ -36,7 +50,7 @@ export async function GET(request: NextRequest) {
   };
 
   try {
-    const { prisma } = await import("@/lib/db");
+    const prisma = requireDatabase();
 
     // -----------------------------------------------------------------------
     // 24-hour reminders
@@ -153,14 +167,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log("[Cron] Reminder results:", results);
     return NextResponse.json(results);
   } catch (error) {
-    // Handle case where DB is not available (dev/preview without DB)
-    console.warn("[Cron] Could not query appointments (no DB?):", error);
-    return NextResponse.json({
-      ...results,
-      message: "No database connection — skipped reminder processing",
-    });
+    return handleRouteError(error, "No se pudieron procesar los recordatorios.");
   }
 }

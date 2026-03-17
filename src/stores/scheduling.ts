@@ -28,6 +28,7 @@ export interface BookingResult {
   appointmentId?: string | null;
   psychologistId?: string;
   psychologistName?: string;
+  error?: string;
 }
 
 interface SchedulingStore {

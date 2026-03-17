@@ -13,6 +13,7 @@ interface SettingsData {
   socialFacebook: string;
   socialWhatsapp: string;
   businessHours: string;
+  calcomEventTypeIds: string;
 }
 
 export default function AdminConfiguracionPage() {

@@ -8,6 +8,7 @@ interface BlogCardProps {
   author: string;
   slug: string;
   coverColor: string;
+  coverImageUrl?: string | null;
   index: number;
 }
 
@@ -18,13 +19,23 @@ export default function BlogCard({
   author,
   slug,
   coverColor,
+  coverImageUrl,
   index,
 }: BlogCardProps) {
   return (
     <AnimatedSection animation="fade-up" delay={index * 0.1}>
       <Link href={`/blog/${slug}`} className="block group">
         <article className="bg-surface rounded-2xl overflow-hidden shadow-lg shadow-black/5 hover:shadow-xl transition-shadow">
-          <div className={`${coverColor} h-48`} />
+          <div
+            className={`${coverImageUrl ? "" : coverColor} h-48 bg-cover bg-center`}
+            style={
+              coverImageUrl
+                ? {
+                    backgroundImage: `linear-gradient(rgba(0,0,0,0.14), rgba(0,0,0,0.14)), url(${coverImageUrl})`,
+                  }
+                : undefined
+            }
+          />
           <div className="p-6">
             <div className="flex items-center gap-2 text-text-muted text-sm">
               <time>{date}</time>

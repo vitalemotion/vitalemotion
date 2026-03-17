@@ -3,7 +3,12 @@
 import { useState, useEffect } from "react";
 import AppointmentCard from "@/components/portal/AppointmentCard";
 
-type AppointmentStatus = "CONFIRMED" | "PENDING" | "CANCELLED" | "COMPLETED";
+type AppointmentStatus =
+  | "CONFIRMED"
+  | "PENDING"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "NO_SHOW";
 
 interface Appointment {
   id: string;
@@ -33,10 +38,14 @@ export default function CitasPage() {
   const now = new Date();
 
   const upcoming = appointments.filter(
-    (apt) => new Date(apt.startTime) >= now && apt.status !== "COMPLETED"
+    (apt) =>
+      new Date(apt.startTime) >= now &&
+      !["COMPLETED", "NO_SHOW", "CANCELLED"].includes(apt.status)
   );
   const history = appointments.filter(
-    (apt) => new Date(apt.startTime) < now || apt.status === "COMPLETED"
+    (apt) =>
+      new Date(apt.startTime) < now ||
+      ["COMPLETED", "NO_SHOW", "CANCELLED"].includes(apt.status)
   );
 
   const handleCancel = (id: string) => {

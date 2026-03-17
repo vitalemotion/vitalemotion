@@ -3,7 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 
-type AppointmentStatus = "CONFIRMED" | "PENDING" | "CANCELLED" | "COMPLETED";
+type AppointmentStatus =
+  | "CONFIRMED"
+  | "PENDING"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "NO_SHOW";
 
 interface Appointment {
   id: string;
@@ -24,6 +29,8 @@ function getStatusClasses(status: AppointmentStatus): string {
       return "bg-error/10 text-error";
     case "COMPLETED":
       return "text-text-muted bg-background";
+    case "NO_SHOW":
+      return "bg-background text-text-muted";
     default:
       return "bg-surface text-text-secondary";
   }
@@ -34,6 +41,7 @@ const statusLabels: Record<AppointmentStatus, string> = {
   PENDING: "Pendiente",
   CANCELLED: "Cancelada",
   COMPLETED: "Completada",
+  NO_SHOW: "No asistio",
 };
 
 export default function AppointmentCard({

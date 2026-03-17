@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import OrderCard from "@/components/portal/OrderCard";
 
-type OrderStatus = "PAID" | "SHIPPED" | "DELIVERED" | "PENDING";
+type OrderStatus = "PAID" | "SHIPPED" | "DELIVERED" | "PENDING" | "CANCELLED";
 
 interface OrderItem {
   name: string;

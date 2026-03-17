@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CartItem } from "@/types/store";
+import { SHIPPING_COST_COP } from "@/lib/store";
 
 interface CartStore {
   items: CartItem[];
@@ -72,7 +73,7 @@ export const useCartStore = create<CartStore>()(
       hasPhysicalItems: () =>
         get().items.some((item) => item.type === "PHYSICAL"),
 
-      shippingCost: () => (get().hasPhysicalItems() ? 10000 : 0),
+      shippingCost: () => (get().hasPhysicalItems() ? SHIPPING_COST_COP : 0),
 
       total: () => get().subtotal() + get().shippingCost(),
     }),

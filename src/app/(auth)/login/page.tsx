@@ -1,30 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const callbackUrl = searchParams.get("callbackUrl") || "";
+  const safeCallbackUrl = callbackUrl.startsWith("/") ? callbackUrl : "";
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    if (safeCallbackUrl) {
+      router.replace(safeCallbackUrl);
+      return;
+    }
+
+    const role = session.user.role;
+    router.replace(role === "ADMIN" || role === "PSYCHOLOGIST" ? "/admin" : "/portal");
+  }, [router, safeCallbackUrl, session]);
 
   if (session) {
-    const role = session.user.role;
-    if (role === "ADMIN" || role === "PSYCHOLOGIST") {
-      router.replace("/admin");
-    } else {
-      router.replace("/portal");
-    }
     return null;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError("");
     setLoading(true);
 
@@ -41,12 +52,15 @@ export default function LoginPage() {
         return;
       }
 
-      // Fetch updated session to determine redirect
-      const res = await fetch("/api/auth/session");
-      const sessionData = await res.json();
+      const response = await fetch("/api/auth/session");
+      const sessionData = (await response.json()) as {
+        user?: { role?: string };
+      };
       const role = sessionData?.user?.role;
 
-      if (role === "ADMIN" || role === "PSYCHOLOGIST") {
+      if (safeCallbackUrl) {
+        router.push(safeCallbackUrl);
+      } else if (role === "ADMIN" || role === "PSYCHOLOGIST") {
         router.push("/admin");
       } else {
         router.push("/portal");
@@ -71,14 +85,17 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-text-secondary mb-1"
+          >
             Email
           </label>
           <input
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             required
             className="bg-background border border-transparent focus:border-primary rounded-xl p-4 w-full outline-none transition-colors text-text-primary placeholder:text-text-muted"
             placeholder="tu@email.com"
@@ -86,14 +103,17 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-text-secondary mb-1">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-text-secondary mb-1"
+          >
             Contrasena
           </label>
           <input
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             required
             className="bg-background border border-transparent focus:border-primary rounded-xl p-4 w-full outline-none transition-colors text-text-primary placeholder:text-text-muted"
             placeholder="Tu contrasena"
@@ -111,16 +131,36 @@ export default function LoginPage() {
 
       <div className="mt-6 space-y-2 text-center text-sm">
         <p className="text-text-secondary">
-          <Link href="/registro" className="text-primary hover:text-primary-dark font-medium transition-colors">
+          <Link
+            href="/registro"
+            className="text-primary hover:text-primary-dark font-medium transition-colors"
+          >
             Crear cuenta
           </Link>
         </p>
         <p className="text-text-secondary">
-          <Link href="/reset-password" className="text-text-muted hover:text-primary transition-colors">
+          <Link
+            href="/reset-password"
+            className="text-text-muted hover:text-primary transition-colors"
+          >
             Olvidaste tu contrasena?
           </Link>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="text-center">
+          <p className="text-sm text-text-muted">Cargando...</p>
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

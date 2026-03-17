@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type OrderStatus = "PAID" | "SHIPPED" | "DELIVERED" | "PENDING";
+type OrderStatus = "PAID" | "SHIPPED" | "DELIVERED" | "PENDING" | "CANCELLED";
 
 interface OrderItem {
   name: string;
@@ -31,6 +31,8 @@ function getStatusClasses(status: OrderStatus): string {
       return "text-text-muted bg-background";
     case "PENDING":
       return "bg-accent/10 text-accent";
+    case "CANCELLED":
+      return "bg-error/10 text-error";
     default:
       return "bg-surface text-text-secondary";
   }
@@ -41,6 +43,7 @@ const statusLabels: Record<OrderStatus, string> = {
   SHIPPED: "Enviado",
   DELIVERED: "Entregado",
   PENDING: "Pendiente",
+  CANCELLED: "Cancelado",
 };
 
 export default function OrderCard({ order }: { order: Order }) {

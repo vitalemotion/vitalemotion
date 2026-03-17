@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { create } from "zustand";
+import { useIsClient } from "@/lib/use-is-client";
 
 interface ToastState {
   message: string;
@@ -19,11 +20,7 @@ export const useToastStore = create<ToastState>((set) => ({
 
 export default function CartToast() {
   const { message, visible, hide } = useToastStore();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsClient();
 
   useEffect(() => {
     if (visible) {

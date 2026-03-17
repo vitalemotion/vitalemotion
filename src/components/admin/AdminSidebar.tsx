@@ -52,8 +52,8 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    label: "Blog",
-    href: "/admin/blog",
+    label: "Contenido",
+    href: "/admin/contenido",
     adminOnly: true,
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

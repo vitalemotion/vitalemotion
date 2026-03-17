@@ -1,3 +1,5 @@
+import { IntegrationError, isMockIntegrationModeEnabled } from "./integrations";
+
 const CALCOM_API_URL = process.env.CALCOM_API_URL || "https://api.cal.com/v1";
 const CALCOM_API_KEY = process.env.CALCOM_API_KEY || "";
 
@@ -18,8 +20,16 @@ interface CalcomBookingResponse {
   endTime: string;
 }
 
-function isConfigured(): boolean {
+export function isCalcomConfigured(): boolean {
   return CALCOM_API_KEY.length > 0;
+}
+
+export function isCalcomMockEnabled() {
+  return !isCalcomConfigured() && isMockIntegrationModeEnabled();
+}
+
+export function isCalcomAvailable() {
+  return isCalcomConfigured() || isCalcomMockEnabled();
 }
 
 // ---------------------------------------------------------------------------
@@ -87,8 +97,15 @@ export async function getAvailableSlots(
   dateTo: string,
   duration: number = 60
 ): Promise<TimeSlot[]> {
-  if (!isConfigured()) {
-    console.log("[Cal.com Mock] Generating mock slots for", dateFrom, "to", dateTo);
+  if (!isCalcomConfigured()) {
+    if (!isCalcomMockEnabled()) {
+      throw new IntegrationError(
+        "CALCOM_NOT_CONFIGURED",
+        "El agendamiento no esta configurado en este entorno."
+      );
+    }
+
+    console.warn("[Cal.com Mock] Generating mock slots for", dateFrom, "to", dateTo);
     return generateMockSlotsRange(dateFrom, dateTo, duration);
   }
 
@@ -103,11 +120,22 @@ export async function getAvailableSlots(
   const response = await fetch(`${CALCOM_API_URL}/slots?${params.toString()}`);
 
   if (!response.ok) {
-    console.error("[Cal.com] Failed to fetch slots:", response.statusText);
-    return generateMockSlotsRange(dateFrom, dateTo, duration);
+    throw new IntegrationError(
+      "CALCOM_SLOTS_REQUEST_FAILED",
+      "No se pudo consultar la disponibilidad en Cal.com.",
+      502
+    );
   }
 
   const data: CalcomSlotsResponse = await response.json();
+
+  if (!data.slots || typeof data.slots !== "object") {
+    throw new IntegrationError(
+      "CALCOM_INVALID_SLOTS_RESPONSE",
+      "Cal.com devolvio una respuesta invalida.",
+      502
+    );
+  }
 
   const slots: TimeSlot[] = [];
   for (const [, daySlots] of Object.entries(data.slots)) {
@@ -126,8 +154,15 @@ export async function createBooking(
   email: string,
   notes?: string
 ): Promise<{ success: boolean; bookingId?: number; mock?: boolean }> {
-  if (!isConfigured()) {
-    console.log("[Cal.com Mock] Creating mock booking:", { eventTypeId, start, name, email });
+  if (!isCalcomConfigured()) {
+    if (!isCalcomMockEnabled()) {
+      throw new IntegrationError(
+        "CALCOM_NOT_CONFIGURED",
+        "El agendamiento no esta configurado en este entorno."
+      );
+    }
+
+    console.warn("[Cal.com Mock] Creating mock booking:", { eventTypeId, start, name, email });
     return { success: true, bookingId: Math.floor(Math.random() * 100000), mock: true };
   }
 
@@ -148,8 +183,11 @@ export async function createBooking(
   });
 
   if (!response.ok) {
-    console.error("[Cal.com] Failed to create booking:", response.statusText);
-    return { success: false };
+    throw new IntegrationError(
+      "CALCOM_BOOKING_FAILED",
+      "No se pudo crear la reserva en Cal.com.",
+      502
+    );
   }
 
   const data: CalcomBookingResponse = await response.json();
@@ -159,8 +197,15 @@ export async function createBooking(
 export async function cancelBooking(
   bookingId: number
 ): Promise<{ success: boolean }> {
-  if (!isConfigured()) {
-    console.log("[Cal.com Mock] Cancelling mock booking:", bookingId);
+  if (!isCalcomConfigured()) {
+    if (!isCalcomMockEnabled()) {
+      throw new IntegrationError(
+        "CALCOM_NOT_CONFIGURED",
+        "La integracion de agenda no esta configurada."
+      );
+    }
+
+    console.warn("[Cal.com Mock] Cancelling mock booking:", bookingId);
     return { success: true };
   }
 
@@ -170,8 +215,11 @@ export async function cancelBooking(
   );
 
   if (!response.ok) {
-    console.error("[Cal.com] Failed to cancel booking:", response.statusText);
-    return { success: false };
+    throw new IntegrationError(
+      "CALCOM_CANCEL_FAILED",
+      "No se pudo cancelar la reserva externa.",
+      502
+    );
   }
 
   return { success: true };
@@ -181,8 +229,15 @@ export async function rescheduleBooking(
   bookingId: number,
   newStart: string
 ): Promise<{ success: boolean }> {
-  if (!isConfigured()) {
-    console.log("[Cal.com Mock] Rescheduling mock booking:", bookingId, "to", newStart);
+  if (!isCalcomConfigured()) {
+    if (!isCalcomMockEnabled()) {
+      throw new IntegrationError(
+        "CALCOM_NOT_CONFIGURED",
+        "La integracion de agenda no esta configurada."
+      );
+    }
+
+    console.warn("[Cal.com Mock] Rescheduling mock booking:", bookingId, "to", newStart);
     return { success: true };
   }
 
@@ -199,8 +254,11 @@ export async function rescheduleBooking(
   );
 
   if (!response.ok) {
-    console.error("[Cal.com] Failed to reschedule booking:", response.statusText);
-    return { success: false };
+    throw new IntegrationError(
+      "CALCOM_RESCHEDULE_FAILED",
+      "No se pudo reagendar la reserva externa.",
+      502
+    );
   }
 
   return { success: true };

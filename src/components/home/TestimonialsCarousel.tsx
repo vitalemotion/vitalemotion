@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 
-const testimonials = [
+interface Testimonial {
+  quote: string;
+  name: string;
+}
+
+const defaultTestimonials = [
   {
     quote:
       "Gracias a Vital Emocion encontre las herramientas para manejar mi ansiedad. Mi vida ha cambiado completamente.",
@@ -26,12 +31,20 @@ const testimonials = [
   },
 ];
 
-export default function TestimonialsCarousel() {
+export default function TestimonialsCarousel({
+  heading = "Lo que dicen nuestros pacientes",
+  testimonials = defaultTestimonials,
+}: {
+  heading?: string;
+  testimonials?: Testimonial[];
+}) {
+  const resolvedTestimonials =
+    testimonials.length > 0 ? testimonials : defaultTestimonials;
   const [current, setCurrent] = useState(0);
 
   const next = useCallback(() => {
-    setCurrent((prev) => (prev + 1) % testimonials.length);
-  }, []);
+    setCurrent((prev) => (prev + 1) % resolvedTestimonials.length);
+  }, [resolvedTestimonials.length]);
 
   // Auto-advance every 5 seconds
   useEffect(() => {
@@ -45,7 +58,7 @@ export default function TestimonialsCarousel() {
         {/* Section header */}
         <AnimatedSection animation="blur-in" className="mb-12">
           <h2 className="font-serif text-4xl text-text-primary">
-            Lo que dicen nuestros pacientes
+            {heading}
           </h2>
         </AnimatedSection>
 
@@ -67,7 +80,7 @@ export default function TestimonialsCarousel() {
           </svg>
 
           {/* Testimonials */}
-          {testimonials.map((testimonial, index) => (
+          {resolvedTestimonials.map((testimonial, index) => (
             <div
               key={index}
               className="absolute inset-x-0 top-12 transition-opacity duration-500 ease-in-out"
@@ -86,7 +99,7 @@ export default function TestimonialsCarousel() {
 
         {/* Dot indicators */}
         <div className="flex items-center justify-center gap-2 mt-8">
-          {testimonials.map((_, index) => (
+          {resolvedTestimonials.map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrent(index)}

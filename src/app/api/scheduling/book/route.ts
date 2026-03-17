@@ -1,9 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createBooking } from "@/lib/calcom";
+import {
+  cancelBooking,
+  createBooking,
+  isCalcomMockEnabled,
+} from "@/lib/calcom";
+import { getCalcomEventTypeIdForService } from "@/lib/calcom-event-types";
 import { getIntelligentAssignment, getServices } from "@/lib/scheduling";
+import { handleRouteError, requireDatabase } from "@/lib/route";
+import { rateLimit } from "@/lib/rate-limit";
+import { sanitizeString, sanitizeEmail, sanitizePhone } from "@/lib/sanitize";
+import { sendAppointmentConfirmation } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 10 requests per minute per IP
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { success: withinLimit } = rateLimit(`book:${ip}`, {
+      maxRequests: 10,
+      windowMs: 60_000,
+    });
+    if (!withinLimit) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Intenta de nuevo en un minuto." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const {
       serviceId,
@@ -25,9 +47,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(patientEmail)) {
+    // Sanitize inputs
+    const sanitizedName = sanitizeString(patientName);
+    const sanitizedEmail = sanitizeEmail(patientEmail);
+    const sanitizedPhone = patientPhone ? sanitizePhone(patientPhone) : null;
+
+    if (!sanitizedEmail) {
       return NextResponse.json(
         { error: "Formato de email invalido" },
         { status: 400 }
@@ -53,13 +78,29 @@ export async function POST(request: NextRequest) {
       assignedPsychologistName = assigned.name;
     }
 
-    // Create booking via Cal.com (or mock)
+    const prisma = requireDatabase();
+    const configuredEventTypeId = await getCalcomEventTypeIdForService(
+      prisma,
+      serviceId
+    );
+    const eventTypeId = configuredEventTypeId || (isCalcomMockEnabled() ? 1 : 0);
+
+    if (eventTypeId <= 0) {
+      return NextResponse.json(
+        {
+          error:
+            `El agendamiento no esta configurado completamente para el servicio "${serviceId}". Falta su event type de Cal.com.`,
+        },
+        { status: 503 }
+      );
+    }
+
     const booking = await createBooking(
-      1, // eventTypeId — would be mapped from serviceId in production
+      eventTypeId,
       slotTime,
-      patientName,
-      patientEmail,
-      patientPhone ? `Tel: ${patientPhone}` : undefined
+      sanitizedName,
+      sanitizedEmail,
+      sanitizedPhone ? `Tel: ${sanitizedPhone}` : undefined
     );
 
     if (!booking.success) {
@@ -69,43 +110,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try to persist in DB
+    // Find or create patient
+    let patient = await prisma.patient.findFirst({
+      where: { user: { email: sanitizedEmail } },
+    });
+
+    if (!patient) {
+      const user = await prisma.user.create({
+        data: {
+          email: sanitizedEmail,
+          name: sanitizedName,
+          role: "PATIENT",
+        },
+      });
+      patient = await prisma.patient.create({
+        data: {
+          userId: user.id,
+          phone: sanitizedPhone || null,
+        },
+      });
+    }
+
+    const startTime = new Date(slotTime);
+    let durationMinutes = 60;
+    let serviceName = serviceId;
+    try {
+      const allServices = await getServices();
+      const svc = allServices.find((s) => s.id === serviceId);
+      if (svc) {
+        durationMinutes = svc.duration;
+        serviceName = svc.name;
+      }
+    } catch {
+      // Keep safe fallback.
+    }
+    const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+
+    // Resolve psychologist name if not set by intelligent assignment
+    if (!assignedPsychologistName) {
+      try {
+        const psy = await prisma.psychologist.findUnique({
+          where: { id: assignedPsychologistId },
+          include: { user: { select: { name: true } } },
+        });
+        if (psy?.user.name) assignedPsychologistName = psy.user.name;
+      } catch {
+        // Keep empty — email will still work.
+      }
+    }
+
     let appointmentId: string | null = null;
     try {
-      const { prisma } = await import("@/lib/db");
-
-      // Find or create patient
-      let patient = await prisma.patient.findFirst({
-        where: { user: { email: patientEmail } },
-      });
-
-      if (!patient) {
-        // Create a basic user + patient record
-        const user = await prisma.user.create({
-          data: {
-            email: patientEmail,
-            name: patientName,
-            role: "PATIENT",
-          },
-        });
-        patient = await prisma.patient.create({
-          data: {
-            userId: user.id,
-            phone: patientPhone || null,
-          },
-        });
-      }
-
-      const startTime = new Date(slotTime);
-      // Get actual service duration from DB/mock
-      let durationMinutes = 60;
-      try {
-        const allServices = await getServices();
-        const svc = allServices.find((s) => s.id === serviceId);
-        if (svc) durationMinutes = svc.duration;
-      } catch { /* use default */ }
-      const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-
       const appointment = await prisma.appointment.create({
         data: {
           patientId: patient.id,
@@ -119,11 +174,30 @@ export async function POST(request: NextRequest) {
       });
       appointmentId = appointment.id;
     } catch (dbError) {
-      console.warn(
-        "[API] Could not persist appointment to DB (mock mode?):",
-        dbError
-      );
+      if (booking.bookingId && !booking.mock) {
+        await cancelBooking(booking.bookingId).catch(() => undefined);
+      }
+      throw dbError;
     }
+
+    // Send appointment confirmation email (non-blocking)
+    sendAppointmentConfirmation({
+      to: sanitizedEmail,
+      patientName: sanitizedName,
+      service: serviceName,
+      psychologist: assignedPsychologistName || "Tu psicologo asignado",
+      date: startTime.toLocaleDateString("es-CO", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      time: startTime.toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,
@@ -134,10 +208,6 @@ export async function POST(request: NextRequest) {
       mock: booking.mock || false,
     });
   } catch (error) {
-    console.error("[API] Booking error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "No se pudo crear la cita.");
   }
 }

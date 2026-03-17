@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/db";
+import { handleRouteError, requireDatabase } from "@/lib/route";
+import { rateLimit } from "@/lib/rate-limit";
+import { sanitizeString, sanitizeEmail } from "@/lib/sanitize";
+import { sendWelcomeEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: 5 requests per minute per IP
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const { success: withinLimit } = rateLimit(`register:${ip}`, {
+      maxRequests: 5,
+      windowMs: 60_000,
+    });
+    if (!withinLimit) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Intenta de nuevo en un minuto." },
+        { status: 429 }
+      );
+    }
+
+    const prisma = requireDatabase();
     const body = await req.json();
     const { name, email, password } = body;
 
@@ -22,53 +39,47 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Sanitize inputs
+    const sanitizedName = sanitizeString(name);
+    const sanitizedEmail = sanitizeEmail(email);
+
+    if (!sanitizedEmail) {
       return NextResponse.json(
         { error: "El formato de email no es valido." },
         { status: 400 }
       );
     }
 
-    // Check if email already taken
-    try {
-      const existingUser = await prisma.user.findUnique({
-        where: { email },
-      });
+    const existingUser = await prisma.user.findUnique({
+      where: { email: sanitizedEmail },
+    });
 
-      if (existingUser) {
-        return NextResponse.json(
-          { error: "Ya existe una cuenta con este email." },
-          { status: 409 }
-        );
-      }
-
-      // Hash password
-      const passwordHash = await bcrypt.hash(password, 12);
-
-      // Create user with PATIENT role and Patient record
-      await prisma.user.create({
-        data: {
-          name,
-          email,
-          passwordHash,
-          role: "PATIENT",
-          patient: {
-            create: {},
-          },
-        },
-      });
-
-      return NextResponse.json({ success: true }, { status: 201 });
-    } catch (dbError) {
-      // Handle case where DB is not available (dev without DB)
-      console.error("Database error during registration:", dbError);
-      return NextResponse.json({ success: true }, { status: 201 });
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "Ya existe una cuenta con este email." },
+        { status: 409 }
+      );
     }
-  } catch {
-    return NextResponse.json(
-      { error: "Error interno del servidor." },
-      { status: 500 }
-    );
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await prisma.user.create({
+      data: {
+        name: sanitizedName,
+        email: sanitizedEmail,
+        passwordHash,
+        role: "PATIENT",
+        patient: {
+          create: {},
+        },
+      },
+    });
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail({ to: sanitizedEmail, name: sanitizedName }).catch(() => {});
+
+    return NextResponse.json({ success: true }, { status: 201 });
+  } catch (error) {
+    return handleRouteError(error, "No se pudo completar el registro.");
   }
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import BlogCard from "@/components/blog/BlogCard";
 import { prisma } from "@/lib/db";
+import { getSanityPublishedPosts } from "@/sanity/lib/content";
 
 export const metadata: Metadata = {
   title: "Blog | Vital Emocion",
@@ -89,6 +90,11 @@ function formatDate(date: Date): string {
 }
 
 async function getArticles() {
+  const sanityPosts = await getSanityPublishedPosts();
+  if (sanityPosts.length > 0) {
+    return sanityPosts;
+  }
+
   try {
     const posts = await prisma.blogPost.findMany({
       where: { status: "PUBLISHED" },
@@ -103,6 +109,7 @@ async function getArticles() {
         date: formatDate(post.createdAt),
         author: post.author.name || "Equipo Vital Emocion",
         coverColor: post.coverImage || COVER_COLORS[i % COVER_COLORS.length],
+        coverImageUrl: null,
       }));
     }
     return PLACEHOLDER_ARTICLES;

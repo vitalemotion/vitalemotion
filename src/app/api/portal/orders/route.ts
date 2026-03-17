@@ -1,39 +1,80 @@
 import { NextResponse } from "next/server";
+import { handleRouteError, requireDatabase, requireRole } from "@/lib/route";
 
-const mockOrders = [
-  {
-    id: "ord-1",
-    date: "08 Mar 2026",
-    total: "$45.000",
-    status: "DELIVERED",
-    items: [
-      { name: "Diario de Gratitud", quantity: 1, price: "$25.000", type: "physical" },
-      { name: "Guia de Meditacion (PDF)", quantity: 1, price: "$20.000", type: "digital", downloadUrl: "#" },
-    ],
-    shippingStatus: "Entregado el 10 Mar 2026",
-  },
-  {
-    id: "ord-2",
-    date: "25 Feb 2026",
-    total: "$32.000",
-    status: "PAID",
-    items: [
-      { name: "Kit de Aromaterapia", quantity: 1, price: "$32.000", type: "physical" },
-    ],
-    shippingStatus: "En preparacion",
-  },
-  {
-    id: "ord-3",
-    date: "10 Feb 2026",
-    total: "$15.000",
-    status: "SHIPPED",
-    items: [
-      { name: "Workbook: Manejo de Ansiedad (PDF)", quantity: 1, price: "$15.000", type: "digital", downloadUrl: "#" },
-    ],
-    shippingStatus: null,
-  },
-];
+function formatDate(date: Date) {
+  return date.toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatCOP(value: number) {
+  return `$${Math.round(value).toLocaleString("es-CO")}`;
+}
+
+function parseShippingStatus(status: string) {
+  switch (status) {
+    case "SHIPPED":
+      return "En camino";
+    case "DELIVERED":
+      return "Entregado";
+    case "PAID":
+      return "Pago confirmado";
+    default:
+      return null;
+  }
+}
 
 export async function GET() {
-  return NextResponse.json(mockOrders);
+  try {
+    const session = await requireRole(["PATIENT"]);
+    const prisma = requireDatabase();
+
+    const patient = await prisma.patient.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    const orders = await prisma.order.findMany({
+      where: { patientId: patient.id },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                type: true,
+                digitalFile: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(
+      orders.map((order) => ({
+        id: order.id,
+        date: formatDate(order.createdAt),
+        total: formatCOP(order.total),
+        status: order.status,
+        items: order.items.map((item) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          price: formatCOP(item.price),
+          type: item.product.type === "DIGITAL" ? "digital" : "physical",
+          ...(item.product.digitalFile && { downloadUrl: item.product.digitalFile }),
+        })),
+        shippingStatus: parseShippingStatus(order.status),
+      }))
+    );
+  } catch (error) {
+    return handleRouteError(error, "No se pudieron cargar tus compras.");
+  }
 }

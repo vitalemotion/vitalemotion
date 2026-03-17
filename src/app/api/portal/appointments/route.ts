@@ -1,55 +1,57 @@
 import { NextResponse } from "next/server";
+import { handleRouteError, requireDatabase, requireRole } from "@/lib/route";
 
-const mockAppointments = [
-  // Upcoming
-  {
-    id: "apt-1",
-    service: "Terapia Individual",
-    psychologist: "Dra. Ana Rodriguez",
-    date: "15 Mar 2026",
-    time: "10:00",
-    status: "CONFIRMED",
-    startTime: "2026-03-15T10:00:00Z",
-  },
-  {
-    id: "apt-2",
-    service: "Terapia de Pareja",
-    psychologist: "Dr. Carlos Mendez",
-    date: "20 Mar 2026",
-    time: "14:00",
-    status: "PENDING",
-    startTime: "2026-03-20T14:00:00Z",
-  },
-  {
-    id: "apt-3",
-    service: "Evaluacion Psicologica",
-    psychologist: "Dra. Ana Rodriguez",
-    date: "28 Mar 2026",
-    time: "09:00",
-    status: "CONFIRMED",
-    startTime: "2026-03-28T09:00:00Z",
-  },
-  // Past
-  {
-    id: "apt-4",
-    service: "Primera Consulta",
-    psychologist: "Dra. Ana Rodriguez",
-    date: "01 Mar 2026",
-    time: "11:00",
-    status: "COMPLETED",
-    startTime: "2026-03-01T11:00:00Z",
-  },
-  {
-    id: "apt-5",
-    service: "Terapia Individual",
-    psychologist: "Dra. Ana Rodriguez",
-    date: "22 Feb 2026",
-    time: "10:00",
-    status: "COMPLETED",
-    startTime: "2026-02-22T10:00:00Z",
-  },
-];
+function formatDate(date: Date) {
+  return date.toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 
 export async function GET() {
-  return NextResponse.json(mockAppointments);
+  try {
+    const session = await requireRole(["PATIENT"]);
+    const prisma = requireDatabase();
+
+    const patient = await prisma.patient.findUnique({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!patient) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    const appointments = await prisma.appointment.findMany({
+      where: { patientId: patient.id },
+      include: {
+        psychologist: { include: { user: { select: { name: true } } } },
+        service: { select: { name: true } },
+      },
+      orderBy: { startTime: "asc" },
+    });
+
+    return NextResponse.json(
+      appointments.map((appointment) => ({
+        id: appointment.id,
+        service: appointment.service.name,
+        psychologist: appointment.psychologist.user.name || "Sin nombre",
+        date: formatDate(appointment.startTime),
+        time: formatTime(appointment.startTime),
+        status: appointment.status,
+        startTime: appointment.startTime.toISOString(),
+      }))
+    );
+  } catch (error) {
+    return handleRouteError(error, "No se pudieron cargar tus citas.");
+  }
 }

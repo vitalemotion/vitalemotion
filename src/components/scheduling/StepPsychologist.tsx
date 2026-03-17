@@ -1,30 +1,14 @@
 "use client";
 
-import { useSchedulingStore, SchedulingPsychologist } from "@/stores/scheduling";
+import { useEffect, useState } from "react";
+import {
+  useSchedulingStore,
+  type SchedulingPsychologist,
+} from "@/stores/scheduling";
 
-const PLACEHOLDER_PSYCHOLOGISTS: SchedulingPsychologist[] = [
-  {
-    id: "psy-1",
-    name: "Dra. Laura Martinez",
-    specialties: ["Terapia Individual", "Terapia de Pareja", "Coaching de Vida"],
-    photoUrl: null,
-    bio: "Psicologa clinica con 10 anos de experiencia en terapia cognitivo-conductual.",
-  },
-  {
-    id: "psy-2",
-    name: "Dr. Carlos Mendez",
-    specialties: ["Evaluacion Psicologica", "Terapia Infantil", "Terapia Individual"],
-    photoUrl: null,
-    bio: "Especialista en evaluacion neuropsicologica y desarrollo infantil.",
-  },
-  {
-    id: "psy-3",
-    name: "Dra. Ana Sofia Reyes",
-    specialties: ["Talleres de Mindfulness", "Coaching de Vida", "Terapia de Pareja"],
-    photoUrl: null,
-    bio: "Experta en mindfulness y bienestar emocional con enfoque humanista.",
-  },
-];
+interface PsychologistsResponse {
+  psychologists?: SchedulingPsychologist[];
+}
 
 function getInitials(name: string): string {
   return name
@@ -36,46 +20,136 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function LoadingCard({ index }: { index: number }) {
+  return (
+    <div
+      className="rounded-2xl border-2 border-transparent bg-surface p-6"
+      aria-hidden="true"
+      style={{ animationDelay: `${index * 100}ms` }}
+    >
+      <div className="mb-4 flex justify-center">
+        <div className="h-20 w-20 animate-pulse rounded-full bg-primary/10" />
+      </div>
+      <div className="mx-auto h-6 w-2/3 animate-pulse rounded bg-secondary/80" />
+      <div className="mx-auto mt-3 h-4 w-full animate-pulse rounded bg-secondary/60" />
+      <div className="mx-auto mt-2 h-4 w-5/6 animate-pulse rounded bg-secondary/60" />
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <div className="h-6 w-20 animate-pulse rounded-full bg-primary/10" />
+        <div className="h-6 w-24 animate-pulse rounded-full bg-secondary/60" />
+      </div>
+    </div>
+  );
+}
+
 export default function StepPsychologist() {
-  const { selectedPsychologist, selectedService, setPsychologist, nextStep, prevStep } =
-    useSchedulingStore();
+  const {
+    selectedPsychologist,
+    selectedService,
+    setPsychologist,
+    nextStep,
+    prevStep,
+  } = useSchedulingStore();
+  const [psychologists, setPsychologists] = useState<SchedulingPsychologist[]>(
+    []
+  );
+  const [loadingPsychologists, setLoadingPsychologists] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [requestKey, setRequestKey] = useState(0);
+  const selectedServiceId = selectedService?.id;
 
-  // Filter psychologists that match the selected service
-  const matchingPsychologists = selectedService
-    ? PLACEHOLDER_PSYCHOLOGISTS.filter((p) =>
-        p.specialties.includes(selectedService.name)
+  useEffect(() => {
+    if (!selectedServiceId) {
+      setPsychologists([]);
+      setLoadingPsychologists(false);
+      setLoadError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadPsychologists() {
+      const serviceId = selectedServiceId;
+      if (!serviceId) {
+        return;
+      }
+
+      setLoadingPsychologists(true);
+      setLoadError(null);
+
+      try {
+        const params = new URLSearchParams();
+        params.set("serviceId", serviceId);
+        const response = await fetch(
+          `/api/scheduling/psychologists?${params.toString()}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("No se pudieron cargar los profesionales");
+        }
+
+        const data: PsychologistsResponse = await response.json();
+        const nextPsychologists = Array.isArray(data.psychologists)
+          ? data.psychologists
+          : [];
+
+        setPsychologists(nextPsychologists);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error("[Scheduling] Failed to load psychologists:", error);
+        setPsychologists([]);
+        setLoadError("No pudimos cargar los profesionales disponibles.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingPsychologists(false);
+        }
+      }
+    }
+
+    loadPsychologists();
+
+    return () => controller.abort();
+  }, [requestKey, selectedServiceId]);
+
+  useEffect(() => {
+    if (
+      selectedPsychologist &&
+      !psychologists.some(
+        (psychologist) => psychologist.id === selectedPsychologist.id
       )
-    : PLACEHOLDER_PSYCHOLOGISTS;
-
-  const displayPsychologists =
-    matchingPsychologists.length > 0
-      ? matchingPsychologists
-      : PLACEHOLDER_PSYCHOLOGISTS;
+    ) {
+      setPsychologist(null);
+    }
+  }, [psychologists, selectedPsychologist, setPsychologist]);
 
   const handleSelect = (psychologist: SchedulingPsychologist | null) => {
     setPsychologist(psychologist);
   };
 
   const handleNext = () => {
-    // Allow proceeding with null (auto-assign) or selected psychologist
     nextStep();
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="text-center mb-8">
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-8 text-center">
         <h2 className="font-serif text-3xl text-text-primary">
           Elige tu profesional
         </h2>
-        <p className="text-text-secondary mt-2">
+        <p className="mt-2 text-text-secondary">
           Selecciona un psicologo o dejanos asignarte al mejor disponible
         </p>
       </div>
 
-      {/* Auto-assign option */}
       <button
         onClick={() => handleSelect(null)}
-        className={`w-full text-left rounded-2xl p-6 mb-4 transition-all duration-300 border-2 ${
+        className={`mb-4 w-full text-left rounded-2xl p-6 transition-all duration-300 border-2 ${
           selectedPsychologist === null
             ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
             : "border-transparent bg-surface hover:border-primary/30 hover:shadow-md"
@@ -83,7 +157,7 @@ export default function StepPsychologist() {
       >
         <div className="flex items-center gap-4">
           <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+            className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full transition-colors ${
               selectedPsychologist === null
                 ? "bg-primary text-white"
                 : "bg-primary/10 text-primary"
@@ -108,13 +182,13 @@ export default function StepPsychologist() {
             <h3 className="font-serif text-lg text-text-primary">
               No tengo preferencia
             </h3>
-            <p className="text-text-secondary text-sm mt-1">
+            <p className="mt-1 text-sm text-text-secondary">
               Te asignaremos al profesional con mayor disponibilidad para tu
               servicio seleccionado
             </p>
           </div>
           {selectedPsychologist === null && (
-            <div className="flex items-center gap-2 text-primary text-sm font-medium flex-shrink-0">
+            <div className="flex flex-shrink-0 items-center gap-2 text-sm font-medium text-primary">
               <svg
                 width="16"
                 height="16"
@@ -132,92 +206,119 @@ export default function StepPsychologist() {
         </div>
       </button>
 
-      {/* Psychologist cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {displayPsychologists.map((psychologist) => {
-          const isSelected = selectedPsychologist?.id === psychologist.id;
-          return (
-            <button
-              key={psychologist.id}
-              onClick={() => handleSelect(psychologist)}
-              className={`text-left rounded-2xl p-6 transition-all duration-300 border-2 ${
-                isSelected
-                  ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                  : "border-transparent bg-surface hover:border-primary/30 hover:shadow-md"
-              }`}
-            >
-              {/* Avatar */}
-              <div className="flex justify-center mb-4">
-                {psychologist.photoUrl ? (
-                  <img
-                    src={psychologist.photoUrl}
-                    alt={psychologist.name}
-                    className="w-20 h-20 rounded-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className={`w-20 h-20 rounded-full flex items-center justify-center text-xl font-serif font-bold transition-colors ${
-                      isSelected
-                        ? "bg-primary text-white"
-                        : "bg-primary/10 text-primary"
-                    }`}
-                  >
-                    {getInitials(psychologist.name)}
+      {loadingPsychologists ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {Array.from({ length: 3 }, (_, index) => (
+            <LoadingCard key={index} index={index} />
+          ))}
+        </div>
+      ) : loadError ? (
+        <div className="rounded-2xl bg-surface p-8 text-center">
+          <p className="text-text-primary">{loadError}</p>
+          <button
+            onClick={() => setRequestKey((current) => current + 1)}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-semibold text-white transition-colors hover:bg-primary-dark"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : psychologists.length === 0 ? (
+        <div className="rounded-2xl bg-surface p-8 text-center">
+          <p className="text-text-primary">
+            No hay perfiles publicados para este servicio.
+          </p>
+          <p className="mt-2 text-sm text-text-secondary">
+            Puedes continuar y te asignaremos automaticamente al profesional
+            disponible.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {psychologists.map((psychologist) => {
+            const isSelected = selectedPsychologist?.id === psychologist.id;
+            return (
+              <button
+                key={psychologist.id}
+                onClick={() => handleSelect(psychologist)}
+                className={`text-left rounded-2xl p-6 transition-all duration-300 border-2 ${
+                  isSelected
+                    ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+                    : "border-transparent bg-surface hover:border-primary/30 hover:shadow-md"
+                }`}
+              >
+                <div className="mb-4 flex justify-center">
+                  {psychologist.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={psychologist.photoUrl}
+                      alt={psychologist.name}
+                      className="h-20 w-20 rounded-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div
+                      className={`flex h-20 w-20 items-center justify-center rounded-full text-xl font-serif font-bold transition-colors ${
+                        isSelected
+                          ? "bg-primary text-white"
+                          : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {getInitials(psychologist.name)}
+                    </div>
+                  )}
+                </div>
+
+                <h3 className="text-center font-serif text-lg text-text-primary">
+                  {psychologist.name}
+                </h3>
+                <p className="mt-2 text-center text-sm leading-relaxed text-text-secondary">
+                  {psychologist.bio}
+                </p>
+
+                <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                  {psychologist.specialties.slice(0, 3).map((specialty) => (
+                    <span
+                      key={specialty}
+                      className={`rounded-full px-2.5 py-0.5 text-xs ${
+                        selectedService &&
+                        specialty.toLowerCase() ===
+                          selectedService.name.toLowerCase()
+                          ? "bg-primary/20 text-primary font-medium"
+                          : "bg-secondary/60 text-text-secondary"
+                      }`}
+                    >
+                      {specialty}
+                    </span>
+                  ))}
+                </div>
+
+                {isSelected && (
+                  <div className="mt-4 flex items-center justify-center gap-2 text-sm font-medium text-primary">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Seleccionado
                   </div>
                 )}
-              </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-              <h3 className="font-serif text-lg text-text-primary text-center">
-                {psychologist.name}
-              </h3>
-              <p className="text-text-secondary text-sm mt-2 text-center leading-relaxed">
-                {psychologist.bio}
-              </p>
-
-              {/* Specialties */}
-              <div className="flex flex-wrap justify-center gap-1.5 mt-4">
-                {psychologist.specialties.slice(0, 3).map((spec) => (
-                  <span
-                    key={spec}
-                    className={`rounded-full px-2.5 py-0.5 text-xs ${
-                      selectedService && spec === selectedService.name
-                        ? "bg-primary/20 text-primary font-medium"
-                        : "bg-secondary/60 text-text-secondary"
-                    }`}
-                  >
-                    {spec}
-                  </span>
-                ))}
-              </div>
-
-              {/* Selected indicator */}
-              {isSelected && (
-                <div className="mt-4 flex items-center justify-center gap-2 text-primary text-sm font-medium">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Seleccionado
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Navigation */}
       <div className="mt-10 flex items-center justify-between">
         <button
           onClick={prevStep}
-          className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors font-medium"
+          className="inline-flex items-center gap-2 font-medium text-text-secondary transition-colors hover:text-text-primary"
         >
           <svg
             width="18"
@@ -237,7 +338,7 @@ export default function StepPsychologist() {
 
         <button
           onClick={handleNext}
-          className="inline-flex items-center gap-2 rounded-xl px-8 py-4 font-semibold bg-primary text-white hover:bg-primary-dark transition-all duration-300 shadow-lg shadow-primary/20"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-4 font-semibold text-white shadow-lg shadow-primary/20 transition-all duration-300 hover:bg-primary-dark"
         >
           Siguiente
           <svg

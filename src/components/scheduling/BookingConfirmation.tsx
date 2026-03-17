@@ -89,8 +89,8 @@ export default function BookingConfirmation() {
           No pudimos confirmar tu cita
         </h2>
         <p className="text-text-secondary mb-8">
-          Hubo un error al procesar tu reserva. Por favor intenta de nuevo o
-          contactanos directamente.
+          {bookingResult?.error ||
+            "Hubo un error al procesar tu reserva. Por favor intenta de nuevo o contactanos directamente."}
         </p>
         <div className="flex items-center justify-center gap-4">
           <button
@@ -225,8 +225,9 @@ export default function BookingConfirmation() {
             Recordatorio por WhatsApp
           </p>
           <p className="text-xs text-text-secondary mt-1">
-            Te enviaremos un recordatorio 24 horas y 1 hora antes de tu cita al
-            numero {patientInfo.phone || "registrado"}.
+            Si el canal de recordatorios esta habilitado, te enviaremos avisos
+            24 horas y 1 hora antes de tu cita al numero{" "}
+            {patientInfo.phone || "registrado"}.
           </p>
         </div>
       </div>

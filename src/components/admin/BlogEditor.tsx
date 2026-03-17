@@ -12,7 +12,7 @@ interface BlogFormData {
 }
 
 interface BlogEditorProps {
-  initialData?: BlogFormData & { id: string; authorId?: string };
+  initialData?: BlogFormData & { id: string };
   mode: "create" | "edit";
 }
 
@@ -68,10 +68,7 @@ export default function BlogEditor({ initialData, mode }: BlogEditorProps) {
       const res = await fetch(url, {
         method: mode === "create" ? "POST" : "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          authorId: initialData?.authorId || "system",
-        }),
+        body: JSON.stringify(form),
       });
 
       if (!res.ok) {

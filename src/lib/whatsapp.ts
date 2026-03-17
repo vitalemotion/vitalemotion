@@ -1,13 +1,23 @@
+import { isMockIntegrationModeEnabled } from "./integrations";
+
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
 const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || "";
 
-function isConfigured(): boolean {
+export function isWhatsAppConfigured(): boolean {
   return (
     TWILIO_ACCOUNT_SID.length > 0 &&
     TWILIO_AUTH_TOKEN.length > 0 &&
     TWILIO_WHATSAPP_NUMBER.length > 0
   );
+}
+
+export function isWhatsAppMockEnabled() {
+  return !isWhatsAppConfigured() && isMockIntegrationModeEnabled();
+}
+
+export function isWhatsAppDeliveryAvailable() {
+  return isWhatsAppConfigured() || isWhatsAppMockEnabled();
 }
 
 // ---------------------------------------------------------------------------
@@ -32,12 +42,16 @@ export const messageTemplates = {
 export async function sendWhatsAppReminder(
   phone: string,
   message: string
-): Promise<{ success: boolean; messageId?: string }> {
+): Promise<{ success: boolean; messageId?: string; errorCode?: string }> {
   // Normalize phone number
   const normalizedPhone = normalizePhone(phone);
 
-  if (!isConfigured()) {
-    console.log(
+  if (!isWhatsAppConfigured()) {
+    if (!isWhatsAppMockEnabled()) {
+      return { success: false, errorCode: "WHATSAPP_NOT_CONFIGURED" };
+    }
+
+    console.warn(
       `[WhatsApp Mock] Would send to ${normalizedPhone}:`,
       message.substring(0, 80) + "..."
     );
@@ -69,15 +83,14 @@ export async function sendWhatsAppReminder(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error("[WhatsApp] Twilio error:", response.status, errorData);
-      return { success: false };
+      return { success: false, errorCode: "WHATSAPP_SEND_FAILED" };
     }
 
     const data = await response.json();
-    console.log("[WhatsApp] Message sent:", data.sid);
     return { success: true, messageId: data.sid };
   } catch (error) {
     console.error("[WhatsApp] Failed to send message:", error);
-    return { success: false };
+    return { success: false, errorCode: "WHATSAPP_SEND_FAILED" };
   }
 }
 

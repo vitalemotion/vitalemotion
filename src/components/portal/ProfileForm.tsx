@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { signOut } from "next-auth/react";
 
 interface ProfileData {
   name: string;
@@ -26,6 +27,10 @@ export default function ProfileForm() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     fetch("/api/portal/profile")
@@ -54,10 +59,15 @@ export default function ProfileForm() {
         body: JSON.stringify(profile),
       });
       if (res.ok) {
+        const data = await res.json();
+        setProfile(data.profile);
         setSuccess(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "No se pudo guardar el perfil");
       }
     } catch {
-      // handle error
+      setSuccess(false);
     } finally {
       setSaving(false);
     }
@@ -82,16 +92,48 @@ export default function ProfileForm() {
 
     setPasswordSaving(true);
     try {
-      // Mock password change
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const res = await fetch("/api/portal/password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Error al cambiar la contrasena");
+      }
+
       setPasswordSuccess(true);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch {
-      setPasswordError("Error al cambiar la contrasena");
+    } catch (error) {
+      setPasswordError(
+        error instanceof Error ? error.message : "Error al cambiar la contrasena"
+      );
     } finally {
       setPasswordSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch("/api/portal/profile", { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.error || "No se pudo eliminar tu cuenta.");
+      }
+
+      // Sign out and redirect to home
+      await signOut({ callbackUrl: "/" });
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "No se pudo eliminar tu cuenta."
+      );
+      setDeleting(false);
     }
   };
 
@@ -291,6 +333,61 @@ export default function ProfileForm() {
             {passwordSaving ? "Guardando..." : "Cambiar Contrasena"}
           </button>
         </div>
+      </div>
+
+      {/* Zona de peligro */}
+      <div className="bg-surface rounded-2xl p-6 shadow-sm border border-error/20">
+        <h2 className="font-serif text-lg text-error mb-2">Zona de peligro</h2>
+        <p className="text-sm text-text-secondary mb-4">
+          Al eliminar tu cuenta se borraran permanentemente todos tus datos
+          personales, historial de citas e historial de compras. Esta accion no
+          se puede deshacer.
+        </p>
+
+        {!showDeleteConfirm ? (
+          <button
+            onClick={() => {
+              setShowDeleteConfirm(true);
+              setDeleteError("");
+            }}
+            className="bg-error/10 text-error border border-error/30 rounded-xl px-6 py-2.5 text-sm font-medium hover:bg-error/20 transition-colors"
+          >
+            Eliminar mi cuenta
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-error font-medium">
+              ¿Estas seguro de que deseas eliminar tu cuenta? Esta accion es
+              irreversible.
+            </p>
+
+            {deleteError && (
+              <p className="text-sm text-error bg-error/10 rounded-xl px-4 py-2.5">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="bg-error text-white rounded-xl px-6 py-2.5 text-sm font-medium hover:bg-error/90 transition-colors disabled:opacity-50"
+              >
+                {deleting ? "Eliminando..." : "Si, eliminar mi cuenta"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteError("");
+                }}
+                disabled={deleting}
+                className="bg-surface text-text-secondary border border-text-muted/20 rounded-xl px-6 py-2.5 text-sm font-medium hover:bg-background transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

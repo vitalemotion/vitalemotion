@@ -1,5 +1,9 @@
 # Vital Emocion — Design Document
 
+> Historical reference only.
+> This file captures the original concept from 2026-03-10 and is no longer the source of truth for setup or operations.
+> Current documentation lives in `README.md` and `docs/*.md`.
+
 **Date**: 2026-03-10
 **Status**: Approved
 

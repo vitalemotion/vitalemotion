@@ -60,6 +60,7 @@ export default function StepTimeSlot() {
   const [slots, setSlots] = useState<TimeSlotData[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [slotsError, setSlotsError] = useState("");
 
   const next7Days = getNext7Days();
 
@@ -81,6 +82,7 @@ export default function StepTimeSlot() {
   const fetchSlots = useCallback(async (date: string) => {
     setLoadingSlots(true);
     setSlots([]);
+    setSlotsError("");
     try {
       const params = new URLSearchParams({ date });
       if (selectedService) params.set("serviceId", selectedService.id);
@@ -94,9 +96,14 @@ export default function StepTimeSlot() {
         const data = await response.json();
         setSlots(data.slots || []);
       } else {
+        const data = (await response.json()) as { error?: string };
+        setSlotsError(
+          data.error || "No se pudieron cargar los horarios disponibles."
+        );
         setSlots([]);
       }
     } catch {
+      setSlotsError("No se pudieron cargar los horarios disponibles.");
       setSlots([]);
     } finally {
       setLoadingSlots(false);
@@ -167,10 +174,16 @@ export default function StepTimeSlot() {
           psychologistName: data.psychologistName,
         });
       } else {
-        setBookingResult({ success: false });
+        setBookingResult({
+          success: false,
+          error: data.error || "No se pudo completar la reserva.",
+        });
       }
     } catch {
-      setBookingResult({ success: false });
+      setBookingResult({
+        success: false,
+        error: "No se pudo completar la reserva.",
+      });
     } finally {
       setIsBooking(false);
     }
@@ -242,7 +255,7 @@ export default function StepTimeSlot() {
                 <polyline points="12 6 12 12 16 14" />
               </svg>
               <p className="text-text-muted text-sm">
-                No hay horarios disponibles para esta fecha
+                {slotsError || "No hay horarios disponibles para esta fecha"}
               </p>
             </div>
           ) : (

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import AnimatedSection from "@/components/animations/AnimatedSection";
 import PayPalCheckout from "@/components/store/PayPalCheckout";
 import { useCartStore } from "@/stores/cart";
@@ -11,8 +12,18 @@ function formatCOP(value: number): string {
   return `$${value.toLocaleString("es-CO")}`;
 }
 
+interface ProfileResponse {
+  name?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const {
     items,
     subtotal,
@@ -31,6 +42,52 @@ export default function CheckoutPage() {
     zip: "",
     phone: "",
   });
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  useEffect(() => {
+    if (status !== "authenticated" || session.user.role !== "PATIENT") {
+      return;
+    }
+
+    let active = true;
+
+    async function loadProfile() {
+      setProfileLoading(true);
+
+      try {
+        const response = await fetch("/api/portal/profile");
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as ProfileResponse;
+
+        if (!active) {
+          return;
+        }
+
+        setShippingForm((prev) => ({
+          name: prev.name || data.name || session?.user?.name || "",
+          address: prev.address || data.address || "",
+          city: prev.city || data.city || "",
+          state: prev.state || data.state || "",
+          zip: prev.zip || data.postalCode || "",
+          phone: prev.phone || data.phone || "",
+        }));
+      } finally {
+        if (active) {
+          setProfileLoading(false);
+        }
+      }
+    }
+
+    void loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.name, session?.user?.role, status]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setShippingForm((prev) => ({
@@ -39,12 +96,26 @@ export default function CheckoutPage() {
     }));
   };
 
-  const handlePayPalSuccess = (orderData: Record<string, unknown>) => {
-    const orderId =
-      (orderData as { id?: string }).id || Math.random().toString(36).slice(2);
+  const handlePayPalSuccess = (orderData: { orderId: string }) => {
     clearCart();
-    router.push(`/tienda/confirmacion?order=${orderId}`);
+    router.push(`/tienda/confirmacion?order=${orderData.orderId}`);
   };
+
+  const isShippingComplete =
+    !hasPhysicalItems() ||
+    Boolean(
+      shippingForm.name &&
+        shippingForm.address &&
+        shippingForm.city &&
+        shippingForm.state &&
+        shippingForm.zip &&
+        shippingForm.phone
+    );
+
+  const canCheckout =
+    status === "authenticated" &&
+    session.user.role === "PATIENT" &&
+    isShippingComplete;
 
   if (itemCount() === 0) {
     return (
@@ -99,7 +170,6 @@ export default function CheckoutPage() {
         </AnimatedSection>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left — Order summary */}
           <AnimatedSection animation="fade-up" delay={0.1}>
             <div className="bg-surface rounded-2xl p-6">
               <h2 className="font-serif text-xl text-text-primary mb-6">
@@ -153,15 +223,18 @@ export default function CheckoutPage() {
             </div>
           </AnimatedSection>
 
-          {/* Right — Shipping form + PayPal */}
           <AnimatedSection animation="fade-up" delay={0.2}>
             <div className="space-y-8">
-              {/* Shipping form — only for physical items */}
               {hasPhysicalItems() && (
                 <div className="bg-surface rounded-2xl p-6">
                   <h2 className="font-serif text-xl text-text-primary mb-6">
                     Datos de envio
                   </h2>
+                  {profileLoading && (
+                    <p className="text-sm text-text-muted mb-4">
+                      Cargando tus datos guardados...
+                    </p>
+                  )}
                   <div className="space-y-4">
                     <div>
                       <label
@@ -273,16 +346,54 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              {/* PayPal */}
               <div className="bg-surface rounded-2xl p-6">
                 <h2 className="font-serif text-xl text-text-primary mb-6">
                   Metodo de pago
                 </h2>
-                <PayPalCheckout
-                  total={total()}
-                  items={items}
-                  onSuccess={handlePayPalSuccess}
-                />
+                {status === "loading" ? (
+                  <p className="text-sm text-text-secondary">
+                    Verificando tu sesion...
+                  </p>
+                ) : status !== "authenticated" ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-text-secondary">
+                      Debes iniciar sesion como paciente para completar la compra
+                      y guardar tu pedido en el portal.
+                    </p>
+                    <Link
+                      href="/login?callbackUrl=%2Ftienda%2Fcheckout"
+                      className="inline-flex bg-primary text-white px-5 py-3 rounded-xl font-medium hover:bg-primary-dark transition-colors"
+                    >
+                      Iniciar sesion
+                    </Link>
+                  </div>
+                ) : session.user.role !== "PATIENT" ? (
+                  <p className="text-sm text-text-secondary">
+                    El checkout solo esta disponible para cuentas de paciente.
+                    Usa una cuenta de paciente para registrar el pedido en el
+                    portal.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {hasPhysicalItems() && !isShippingComplete && (
+                      <div className="rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-accent">
+                        Completa todos los datos de envio antes de continuar con
+                        PayPal.
+                      </div>
+                    )}
+                    <PayPalCheckout
+                      total={total()}
+                      items={items}
+                      shippingForm={shippingForm}
+                      disabled={!canCheckout}
+                      onSuccess={handlePayPalSuccess}
+                    />
+                    <p className="text-xs text-text-muted">
+                      El monto se valida en el servidor y el pedido queda
+                      guardado automaticamente en tu portal.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </AnimatedSection>

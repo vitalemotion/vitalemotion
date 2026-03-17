@@ -4,6 +4,7 @@ import {
   getIntelligentAssignment,
   getServices,
 } from "@/lib/scheduling";
+import { handleRouteError } from "@/lib/route";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -69,10 +70,6 @@ export async function GET(request: NextRequest) {
       date,
     });
   } catch (error) {
-    console.error("[API] Failed to get available slots:", error);
-    return NextResponse.json(
-      { error: "Error al obtener horarios disponibles" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Error al obtener horarios disponibles");
   }
 }
