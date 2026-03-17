@@ -232,19 +232,154 @@ Cada escena se divide en 2-3 capas con IA (remove background):
 
 ---
 
-## 9. Stack Tecnico Final
+## 9. Enfoque Final: Video IA + Fotogramas en Scroll
+
+> **Decision (2026-03-17):** En vez de parallax multicapa con imagenes estaticas,
+> generamos **video IA** de escenas terapeuticas y usamos el pipeline de fotogramas
+> que ya existe en el codebase (`scripts/download-video.ts` + `HeroScroll` canvas).
+
+### Como funciona
+1. Generar video IA (Sora/Runway/Kling) de un recorrido cinematico por habitacion terapeutica purpura
+2. `scripts/download-video.ts` extrae ~120-200 fotogramas WebP
+3. `HeroScroll` component reproduce fotogramas en canvas atados al scroll
+4. Texto + UI se superponen con GSAP sobre el canvas
+5. El usuario scrollea = la camara "recorre" el espacio
+
+### Prompt base para generar el video
+```
+Slow cinematic camera dolly through a serene therapy room.
+Soft purple volumetric lighting. Marble arches, floating lotus
+flower, zen stones on reflective water floor. Camera moves
+smoothly from room to room, passing through archways.
+Lavender and cream color palette. 3D render aesthetic,
+no people. Dreamy, peaceful atmosphere. 21:9 aspect ratio.
+```
+
+### Ventajas vs parallax multicapa
+| Aspecto | Capas parallax | Video IA |
+|---------|---------------|----------|
+| Realismo | ~80% | ~95% |
+| Movimiento | Simulado | Real y fluido |
+| Continuidad | Cortes entre secciones | Transicion continua |
+| Pipeline | Nuevo | **Ya existe en codebase** |
+| Complejidad de codigo | Alta | Baja (ya hecho) |
+
+---
+
+## 10. Funcionalidades Completas (44 features)
+
+### Frontend Publico
+1. **Home** — Hero con video IA scroll-driven, proposicion de valor, testimonios, servicios, CTA, WhatsApp flotante
+2. **Nosotros** — Historia, mision, perfil de Daniela Quiroga y equipo, especialidades
+3. **Servicios / Agendar** — Wizard 3 pasos: servicio → psicologo → horario (Cal.com API) → confirmacion
+4. **Blog** — Listado con cards, paginas individuales, contenido desde Sanity CMS, SEO por articulo
+5. **Tienda** — Catalogo, filtros, carrito (Zustand), checkout PayPal, confirmacion, conversion USD/COP
+6. **Contacto** — Formulario, ubicacion, redes sociales, WhatsApp directo
+7. **Podcast** (nuevo) — Listado de episodios, player embebido, acceso gated para premium
+8. **Membresia** (nuevo) — Planes Gratis/Basico/Premium, acceso a contenido exclusivo
+
+### Frontend Auth
+9. **Login** — Email + password, redireccion por rol
+10. **Registro** — Nombre, email, password, creacion automatica de Patient
+11. **Reset Password** — Solicitar reset por email, token seguro, formulario nueva contrasena
+
+### Frontend Portal del Paciente
+12. **Dashboard** — Proximas citas, compras recientes, estado membresia
+13. **Mis Citas** — Listado, estados, cancelar, notas
+14. **Mis Compras** — Historial, estado pedido, acceso a productos digitales
+15. **Mi Perfil** — Editar datos, cambiar contrasena, eliminar cuenta (GDPR)
+
+### Frontend Admin
+16. **Dashboard Admin** — Estadisticas (pacientes, citas, ingresos), graficos
+17. **Gestion Productos** — CRUD completo, tipo digital/fisico, imagenes, stock
+18. **Gestion Citas** — Ver todas, filtrar, actualizar estado
+19. **Gestion Ordenes** — Listado, filtros, actualizar estado envio
+20. **Gestion Blog** — CRUD posts, editor, borrador/publicado
+21. **Gestion Equipo** — CRUD psicologos, bio, especialidades, servicios
+22. **Configuracion Sitio** — Nombre, horarios, contacto, redes sociales
+23. **Sanity Studio** — CMS en /admin/contenido, gestion editorial independiente
+
+### Backend (API Routes)
+24. **Auth API** — registro, forgot-password, reset-password, NextAuth handlers
+25. **Scheduling API** — servicios, psicologos, slots disponibles, reservar cita
+26. **Store API** — productos, checkout PayPal, exchange rate USD/COP
+27. **Admin API** — CRUD protegido (rol ADMIN) para productos, blog, equipo, citas, ordenes, config
+28. **Portal API** — perfil, citas, compras, contrasena, eliminacion cuenta
+29. **Cron API** — recordatorios WhatsApp automaticos (24h y 1h antes)
+
+### Integraciones
+30. **Cal.com** — agendamiento y disponibilidad
+31. **PayPal** — procesamiento de pagos
+32. **WhatsApp/Twilio** — recordatorios automaticos
+33. **Sanity** — CMS editorial
+34. **Sentry** — monitoreo de errores
+35. **Pexels** → sera reemplazado por IA para imagenes/video
+
+### Infraestructura
+36. **PostgreSQL** via Supabase + Prisma 7 (driver adapter PrismaPg)
+37. **Autenticacion** — NextAuth.js con JWT + bcrypt
+38. **Proteccion de rutas** — proxy.ts (paginas) + route.ts (APIs)
+39. **SEO** — metadata dinamica, sitemap.xml, robots.txt
+40. **GDPR** — privacidad, terminos, cookies, eliminacion de cuenta
+41. **Seguridad** — headers, rate limiting, sanitizacion
+42. **Loading skeletons** — todas las rutas
+43. **Error pages** — 404 y 500 personalizadas
+44. **Responsive** — mobile-first, todas las paginas
+
+---
+
+## 11. Infraestructura de Deploy
+
+| Servicio | Recurso | Estado |
+|----------|---------|--------|
+| GitHub | org: vitalemotion, repo: vitalemotion | Creado |
+| Vercel | proyecto conectado al repo | Pendiente |
+| Supabase | PostgreSQL managed | Pendiente |
+
+### Variables de entorno para produccion
+```
+DATABASE_URL=postgresql://...supabase...
+NEXTAUTH_SECRET=<generar-secreto-seguro>
+NEXTAUTH_URL=https://vitalemotion.vercel.app
+NEXT_PUBLIC_SANITY_PROJECT_ID=<crear-proyecto-sanity>
+NEXT_PUBLIC_SANITY_DATASET=production
+CALCOM_API_KEY=<cuando-tengan>
+PAYPAL_CLIENT_ID=<cuando-tengan>
+PAYPAL_CLIENT_SECRET=<cuando-tengan>
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=<cuando-tengan>
+ALLOW_MOCK_INTEGRATIONS=true
+```
+
+---
+
+## 12. Stack Tecnico Final
 
 | Componente | Tecnologia |
 |-----------|------------|
 | Framework | Next.js 16 |
 | Styling | Tailwind CSS 4 |
 | Animaciones | GSAP + ScrollTrigger + Lenis |
+| Video scroll | Canvas + fotogramas WebP (pipeline existente) |
 | CMS | Sanity |
-| DB | Prisma + Supabase (PostgreSQL) |
+| DB | Prisma 7 + Supabase (PostgreSQL) + PrismaPg adapter |
 | Auth | NextAuth.js |
 | Pagos | PayPal |
 | Agendamiento | Cal.com |
 | Mensajeria | WhatsApp (Twilio) |
 | Monitoreo | Sentry |
 | Deploy | Vercel |
-| Imagenes IA | Midjourney / DALL-E / Stable Diffusion |
+| Video IA | Sora / Runway Gen-3 / Kling 2.0 |
+
+---
+
+## 13. Conversaciones y Decisiones Clave
+
+| Fecha | Decision | Razon |
+|-------|----------|-------|
+| 2026-03-17 | Monolito Next.js (no separar FE/BE) | Escala no lo justifica, SSR directo a DB, un solo deploy |
+| 2026-03-17 | Referencia: Anima Wellness | Negocio casi identico, estetica premium, storytelling |
+| 2026-03-17 | NO usar WebGL/Three.js | Pesado para celulares en Colombia, overkill |
+| 2026-03-17 | Video IA en vez de parallax multicapa | Pipeline ya existe, resultado mas realista, menos codigo |
+| 2026-03-17 | Renombrar a "vitalemotion" | Pedido del cliente |
+| 2026-03-17 | Agregar membresia | Pedido del cliente para gated content |
+| 2026-03-17 | Deploy en Vercel + Supabase | Infra managed, gratis para empezar |
